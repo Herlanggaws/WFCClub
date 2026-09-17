@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import Link from "next/link";
 import {
   AuthButton,
   AuthErrorBanner,
@@ -16,7 +15,6 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [demoToken, setDemoToken] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -24,8 +22,7 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const result = await auth.requestPasswordReset({ email });
-      setDemoToken(result.demoToken ?? null);
+      await auth.requestPasswordReset({ email });
       setSubmitted(true);
     } catch (err) {
       const message =
@@ -52,23 +49,6 @@ export default function ForgotPasswordPage() {
         <div className="rounded-[var(--radius-sm)] bg-[#f7f3ea] px-5 py-4 text-sm leading-relaxed text-muted">
           Cek inbox (dan spam) untuk lanjut ganti password.
         </div>
-        {demoToken ? (
-          <div className="mt-6 rounded-[var(--radius-sm)] border border-accent/20 bg-accent/5 px-5 py-4">
-            <p className="text-[13px] font-bold lowercase text-accent">
-              demo: buka link reset
-            </p>
-            <p className="mt-2 text-[13px] leading-relaxed text-muted">
-              Di production ini dikirim lewat email. Untuk uji lokal, pakai link
-              ini:
-            </p>
-            <Link
-              href={`/reset-password?token=${encodeURIComponent(demoToken)}`}
-              className="mt-3 block break-all text-sm font-semibold text-accent underline-offset-2 hover:underline"
-            >
-              /reset-password?token=…
-            </Link>
-          </div>
-        ) : null}
       </AuthShell>
     );
   }

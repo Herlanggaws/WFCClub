@@ -13,12 +13,13 @@ export interface PasswordResetRequest {
 }
 
 export interface PasswordResetResult {
-  /** Always true for UX (no email enumeration). Present only when account exists (demo). */
+  /** Present only for mock auth demo reset links. */
   demoToken?: string;
 }
 
 export interface ResetPasswordInput {
-  token: string;
+  /** Required by mock auth; unused for Supabase recovery sessions. */
+  token?: string;
   password: string;
 }
 

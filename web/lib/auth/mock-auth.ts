@@ -180,8 +180,16 @@ export const mockAuth: AuthService = {
     await delay();
     validatePassword(password);
 
+    if (!token) {
+      throw new AuthError(
+        "invalid_token",
+        "Link reset tidak valid atau sudah kedaluwarsa.",
+      );
+    }
+
+    const resetToken = token;
     const storage = readStorage();
-    const record = storage.resetTokens[token];
+    const record = storage.resetTokens[resetToken];
 
     if (!record || record.expiresAt < Date.now()) {
       throw new AuthError(
@@ -207,7 +215,7 @@ export const mockAuth: AuthService = {
     };
 
     const resetTokens = { ...storage.resetTokens };
-    delete resetTokens[token];
+    delete resetTokens[resetToken];
 
     writeStorage({
       ...storage,

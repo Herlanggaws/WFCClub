@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   AuthButton,
   AuthErrorBanner,
@@ -11,25 +11,60 @@ import {
 } from "@/components/AuthForm";
 import { AuthError, auth } from "@/lib/auth";
 import { MIN_PASSWORD_LENGTH } from "@/lib/constants";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
-function ResetPasswordForm() {
+export default function ResetPasswordPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const token = searchParams.get("token") ?? "";
 
+  const [ready, setReady] = useState(false);
+  const [hasRecoverySession, setHasRecoverySession] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = getSupabaseBrowserClient();
+
+    async function checkExistingSession() {
+      const { data } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (data.session) {
+        setHasRecoverySession(true);
+        setReady(true);
+      }
+    }
+
+    void checkExistingSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return;
+      if (
+        event === "PASSWORD_RECOVERY" ||
+        (session && (event === "SIGNED_IN" || event === "INITIAL_SESSION"))
+      ) {
+        setHasRecoverySession(true);
+        setReady(true);
+      }
+    });
+
+    const timeoutId = window.setTimeout(() => {
+      if (!cancelled) setReady(true);
+    }, 2500);
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
-
-    if (!token) {
-      setError("Link reset tidak valid atau sudah kedaluwarsa.");
-      return;
-    }
 
     if (password !== confirmPassword) {
       setError("Konfirmasi password tidak cocok.");
@@ -44,7 +79,7 @@ function ResetPasswordForm() {
     setLoading(true);
 
     try {
-      await auth.resetPassword({ token, password });
+      await auth.resetPassword({ password });
       router.replace("/login");
     } catch (err) {
       const message =
@@ -57,7 +92,20 @@ function ResetPasswordForm() {
     }
   }
 
-  if (!token) {
+  if (!ready) {
+    return (
+      <AuthShell title="password baru" subtitle="Memuat link reset...">
+        <div className="flex justify-center py-10">
+          <div
+            className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#d1d1d6] border-t-[#8e8e93]"
+            aria-label="loading"
+          />
+        </div>
+      </AuthShell>
+    );
+  }
+
+  if (!hasRecoverySession) {
     return (
       <AuthShell
         title="link tidak valid"
@@ -68,7 +116,7 @@ function ResetPasswordForm() {
           </>
         }
       >
-        <AuthErrorBanner message="Token reset tidak ditemukan di URL." />
+        <AuthErrorBanner message="Link reset tidak valid atau sudah kedaluwarsa." />
       </AuthShell>
     );
   }
@@ -110,24 +158,5 @@ function ResetPasswordForm() {
         </AuthButton>
       </form>
     </AuthShell>
-  );
-}
-
-export default function ResetPasswordPage() {
-  return (
-    <Suspense
-      fallback={
-        <AuthShell title="password baru" subtitle="Memuat...">
-          <div className="flex justify-center py-10">
-            <div
-              className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#d1d1d6] border-t-[#8e8e93]"
-              aria-label="loading"
-            />
-          </div>
-        </AuthShell>
-      }
-    >
-      <ResetPasswordForm />
-    </Suspense>
   );
 }

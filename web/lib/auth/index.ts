@@ -1,4 +1,4 @@
-export { mockAuth as auth } from "./mock-auth";
+export { supabaseAuth as auth } from "./supabase-auth";
 export {
   AuthError,
   type AuthCredentials,

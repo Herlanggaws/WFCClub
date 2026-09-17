@@ -57,6 +57,10 @@ export function AppGate({ children }: { children: React.ReactNode }) {
 
     const isPublic = matchesPrefix(pathname, PUBLIC_PREFIXES);
     const isAuthOnly = matchesPrefix(pathname, AUTH_ONLY_PREFIXES);
+    const isPasswordReset = matchesPrefix(pathname, ["/reset-password"]);
+
+    // Recovery link establishes a session; keep user on reset form.
+    if (isPasswordReset) return;
 
     if (!session) {
       if (!isPublic) {
