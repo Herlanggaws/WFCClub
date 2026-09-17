@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AuthButton,
@@ -21,6 +22,7 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [needsEmailConfirm, setNeedsEmailConfirm] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -43,14 +45,41 @@ export default function SignupPage() {
       await applySession(session);
       router.replace("/onboarding");
     } catch (err) {
+      if (err instanceof AuthError && err.code === "check_email") {
+        setNeedsEmailConfirm(true);
+        return;
+      }
       const message =
         err instanceof AuthError
           ? err.message
-          : "Gagal daftar. Coba lagi.";
+          : err instanceof Error
+            ? err.message
+            : "Gagal daftar. Coba lagi.";
       setError(message);
     } finally {
       setLoading(false);
     }
+  }
+
+  if (needsEmailConfirm) {
+    return (
+      <AuthShell
+        title="cek email"
+        subtitle={`Kami kirim link konfirmasi ke ${email.trim().toLowerCase()}. Setelah diklik, masuk lewat halaman login.`}
+        footer={
+          <>
+            Sudah konfirmasi? <AuthLink href="/login">Masuk</AuthLink>
+          </>
+        }
+      >
+        <Link
+          href="/login"
+          className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-accent px-10 py-3.5 text-[17px] font-bold lowercase text-white"
+        >
+          ke login
+        </Link>
+      </AuthShell>
+    );
   }
 
   return (

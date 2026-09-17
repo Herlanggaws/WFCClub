@@ -61,8 +61,24 @@ function mapAuthError(error: { message: string; code?: string }): AuthError {
     );
   }
 
-  if (message.includes("email") && message.includes("invalid")) {
-    return new AuthError("invalid_email", "Email tidak valid.");
+  if (
+    code.includes("over_email_send_rate_limit") ||
+    message.includes("rate limit")
+  ) {
+    return new AuthError(
+      "rate_limited",
+      "Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.",
+    );
+  }
+
+  if (
+    code.includes("email_address_invalid") ||
+    (message.includes("email") && message.includes("invalid"))
+  ) {
+    return new AuthError(
+      "invalid_email",
+      "Email tidak valid. Pakai alamat email sungguhan (bukan contoh/fake).",
+    );
   }
 
   return new AuthError(code || "auth_error", error.message);
