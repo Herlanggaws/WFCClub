@@ -124,7 +124,7 @@ export default function ResetPasswordPage() {
   return (
     <AuthShell
       title="password baru"
-      subtitle="Pilih password baru untuk akunmu."
+      subtitle="Pilih password baru (harus berbeda dari password lama)."
       footer={
         <>
           Kembali ke <AuthLink href="/login">masuk</AuthLink>

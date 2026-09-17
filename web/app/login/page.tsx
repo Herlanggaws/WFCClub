@@ -35,7 +35,9 @@ export default function LoginPage() {
       const message =
         err instanceof AuthError
           ? err.message
-          : "Gagal masuk. Coba lagi.";
+          : err instanceof Error
+            ? err.message
+            : "Gagal masuk. Coba lagi.";
       setError(message);
     } finally {
       setLoading(false);

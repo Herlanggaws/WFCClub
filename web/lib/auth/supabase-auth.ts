@@ -62,6 +62,16 @@ function mapAuthError(error: { message: string; code?: string }): AuthError {
   }
 
   if (
+    code.includes("same_password") ||
+    message.includes("different from the old password")
+  ) {
+    return new AuthError(
+      "same_password",
+      "Password baru harus berbeda dari password saat ini.",
+    );
+  }
+
+  if (
     code.includes("over_email_send_rate_limit") ||
     message.includes("rate limit")
   ) {
