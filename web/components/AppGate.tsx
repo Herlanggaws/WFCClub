@@ -97,6 +97,7 @@ export function AppGate({ children }: { children: React.ReactNode }) {
   const hideNav =
     pathname === "/onboarding" ||
     pathname === "/change-password" ||
+    pathname === "/feedback" ||
     matchesPrefix(pathname, PUBLIC_PREFIXES) ||
     pathname.startsWith("/sessions") ||
     pathname.startsWith("/people/") ||

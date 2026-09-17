@@ -340,3 +340,19 @@ export async function cancelRsvpRow(
     .eq("user_id", userId);
   if (error) throw error;
 }
+
+export type FeedbackCategory = "bug" | "saran" | "lainnya";
+
+export async function createFeedbackRow(input: {
+  userId: string;
+  category: FeedbackCategory;
+  message: string;
+}): Promise<void> {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase.from("feedback").insert({
+    user_id: input.userId,
+    category: input.category,
+    message: input.message.trim(),
+  });
+  if (error) throw error;
+}

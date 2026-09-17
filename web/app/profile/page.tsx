@@ -216,8 +216,16 @@ export default function ProfilePage() {
 
         <button
           type="button"
-          onClick={() => router.push("/change-password")}
+          onClick={() => router.push("/feedback")}
           className="mt-6 w-full rounded-full border border-ink/10 bg-white px-5 py-3.5 text-sm font-bold text-ink"
+        >
+          Kirim feedback
+        </button>
+
+        <button
+          type="button"
+          onClick={() => router.push("/change-password")}
+          className="mt-3 w-full rounded-full border border-ink/10 bg-white px-5 py-3.5 text-sm font-bold text-ink"
         >
           Ubah password
         </button>
