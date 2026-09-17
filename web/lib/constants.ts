@@ -35,8 +35,6 @@ export const LOOKING_FOR_OPTIONS: LookingFor[] = [
   "Learning",
 ];
 
-export const STORAGE_KEY = "wfc-app-v3";
-export const AUTH_STORAGE_KEY = "wfc-auth-v1";
 export const MIN_PASSWORD_LENGTH = 8;
 
 export function todayIsoDate(): string {

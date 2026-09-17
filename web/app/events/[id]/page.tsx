@@ -64,10 +64,10 @@ export default function EventDetailPage({
     window.setTimeout(() => setCtaPop(false), 500);
 
     if (isRsvped) {
-      cancelRsvp(id);
+      void cancelRsvp(id);
       return;
     }
-    rsvpEvent(id);
+    void rsvpEvent(id);
   }
 
   return (

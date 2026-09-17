@@ -81,13 +81,3 @@ export interface CurrentUserProfile {
   avatarHue: number;
   initials: string;
 }
-
-export interface AppState {
-  isOnboarded: boolean;
-  currentUser: CurrentUserProfile | null;
-  sessions: WfcSession[];
-  events: CommunityEvent[];
-  people: User[];
-  joinedSessionIds: string[];
-  rsvpedEventIds: string[];
-}

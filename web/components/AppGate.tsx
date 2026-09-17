@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { auth } from "@/lib/auth";
 import { useAppStore } from "@/lib/store/app-store";
 import { MobileShell } from "./MobileShell";
 
@@ -27,30 +26,27 @@ export function AppGate({ children }: { children: React.ReactNode }) {
   const hydrated = useAppStore((s) => s.hydrated);
   const session = useAppStore((s) => s.session);
   const isOnboarded = useAppStore((s) => s.isOnboarded);
-  const setHydrated = useAppStore((s) => s.setHydrated);
-  const applySession = useAppStore((s) => s.applySession);
+  const bootstrap = useAppStore((s) => s.bootstrap);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function rehydrate() {
-      await useAppStore.persist.rehydrate();
-      if (cancelled) return;
-
-      const nextSession = await auth.getSession();
-      if (cancelled) return;
-
-      applySession(nextSession);
-      useAppStore.getState().rebuildDerivable();
-      setHydrated(true);
+    async function start() {
+      try {
+        await bootstrap();
+      } catch {
+        if (!cancelled) {
+          useAppStore.getState().setHydrated(true);
+        }
+      }
     }
 
-    void rehydrate();
+    void start();
 
     return () => {
       cancelled = true;
     };
-  }, [applySession, setHydrated]);
+  }, [bootstrap]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -59,7 +55,6 @@ export function AppGate({ children }: { children: React.ReactNode }) {
     const isAuthOnly = matchesPrefix(pathname, AUTH_ONLY_PREFIXES);
     const isPasswordReset = matchesPrefix(pathname, ["/reset-password"]);
 
-    // Recovery link establishes a session; keep user on reset form.
     if (isPasswordReset) return;
 
     if (!session) {

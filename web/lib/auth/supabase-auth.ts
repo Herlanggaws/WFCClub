@@ -201,10 +201,4 @@ export const supabaseAuth: AuthService = {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) throw mapAuthError(error);
   },
-
-  async deleteAccount(_userId: string): Promise<void> {
-    const supabase = getSupabaseBrowserClient();
-    const { error } = await supabase.auth.signOut();
-    if (error) throw mapAuthError(error);
-  },
 };

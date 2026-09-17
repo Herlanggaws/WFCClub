@@ -66,10 +66,10 @@ export default function SessionDetailPage({
     window.setTimeout(() => setCtaPop(false), 500);
 
     if (isJoined) {
-      leaveSession(id);
+      void leaveSession(id);
       return;
     }
-    joinSession(id);
+    void joinSession(id);
   }
 
   async function handleShare() {

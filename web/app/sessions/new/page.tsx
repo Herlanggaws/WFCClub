@@ -16,21 +16,26 @@ export default function CreateSessionPage() {
   const [endTime, setEndTime] = useState("16:00");
   const [note, setNote] = useState("");
   const [topic, setTopic] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!place.trim()) return;
+    if (!place.trim() || submitting) return;
 
-    const id = createSession({
-      place,
-      date,
-      startTime,
-      endTime,
-      note,
-      topic,
-    });
-
-    router.replace(`/sessions/${id}`);
+    setSubmitting(true);
+    try {
+      const id = await createSession({
+        place,
+        date,
+        startTime,
+        endTime,
+        note,
+        topic,
+      });
+      if (id) router.replace(`/sessions/${id}`);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -112,8 +117,12 @@ export default function CreateSessionPage() {
           />
         </label>
 
-        <button type="submit" className="btn-primary w-full">
-          Buat sesi WFC
+        <button
+          type="submit"
+          disabled={submitting || !place.trim()}
+          className="btn-primary w-full disabled:opacity-50"
+        >
+          {submitting ? "Menyimpan..." : "Buat sesi WFC"}
         </button>
       </form>
     </div>

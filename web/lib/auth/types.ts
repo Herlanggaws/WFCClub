@@ -13,12 +13,12 @@ export interface PasswordResetRequest {
 }
 
 export interface PasswordResetResult {
-  /** Present only for mock auth demo reset links. */
+  /** Reserved for adapters that surface a client-side reset token. */
   demoToken?: string;
 }
 
 export interface ResetPasswordInput {
-  /** Required by mock auth; unused for Supabase recovery sessions. */
+  /** Optional token for adapters that use query-token reset flows. */
   token?: string;
   password: string;
 }
@@ -46,6 +46,4 @@ export interface AuthService {
   requestPasswordReset(input: PasswordResetRequest): Promise<PasswordResetResult>;
   resetPassword(input: ResetPasswordInput): Promise<void>;
   changePassword(input: ChangePasswordInput): Promise<void>;
-  /** Debug helper: remove account + session for the given user. */
-  deleteAccount(userId: string): Promise<void>;
 }

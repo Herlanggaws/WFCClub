@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/Avatar";
 import { Chip } from "@/components/Chip";
@@ -19,9 +19,19 @@ export default function ProfilePage() {
   const session = useAppStore((s) => s.session);
   const updateProfile = useAppStore((s) => s.updateProfile);
   const signOut = useAppStore((s) => s.signOut);
-  const resetDemo = useAppStore((s) => s.resetDemo);
   const [isEditing, setIsEditing] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const [draftAbout, setDraftAbout] = useState("");
+  const [draftRole, setDraftRole] = useState<Role>("Other");
+
+  useEffect(() => {
+    if (!currentUser || isEditing) return;
+    setDraftName(currentUser.name);
+    setDraftAbout(currentUser.about);
+    setDraftRole(currentUser.role);
+  }, [currentUser, isEditing]);
 
   if (!currentUser) {
     return null;
@@ -32,7 +42,7 @@ export default function ProfilePage() {
     const next = currentUser.interests.includes(value)
       ? currentUser.interests.filter((item) => item !== value)
       : [...currentUser.interests, value];
-    updateProfile({ interests: next });
+    void updateProfile({ interests: next });
   }
 
   function toggleLookingFor(value: LookingFor) {
@@ -40,7 +50,32 @@ export default function ProfilePage() {
     const next = currentUser.lookingFor.includes(value)
       ? currentUser.lookingFor.filter((item) => item !== value)
       : [...currentUser.lookingFor, value];
-    updateProfile({ lookingFor: next });
+    void updateProfile({ lookingFor: next });
+  }
+
+  async function handleToggleEdit() {
+    const user = currentUser;
+    if (!user) return;
+
+    if (!isEditing) {
+      setDraftName(user.name);
+      setDraftAbout(user.about);
+      setDraftRole(user.role);
+      setIsEditing(true);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await updateProfile({
+        name: draftName,
+        about: draftAbout,
+        role: draftRole,
+      });
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   async function handleSignOut() {
@@ -53,11 +88,6 @@ export default function ProfilePage() {
     }
   }
 
-  async function handleReset() {
-    await resetDemo();
-    router.replace("/signup");
-  }
-
   return (
     <div>
       <PageHeader
@@ -66,10 +96,11 @@ export default function ProfilePage() {
         action={
           <button
             type="button"
-            onClick={() => setIsEditing((value) => !value)}
-            className="btn-secondary px-3 py-1.5 text-xs"
+            onClick={() => void handleToggleEdit()}
+            disabled={isSaving}
+            className="btn-secondary px-3 py-1.5 text-xs disabled:opacity-50"
           >
-            {isEditing ? "Selesai" : "Edit"}
+            {isSaving ? "..." : isEditing ? "Selesai" : "Edit"}
           </button>
         }
       />
@@ -85,10 +116,8 @@ export default function ProfilePage() {
             <div className="min-w-0 flex-1">
               {isEditing ? (
                 <input
-                  value={currentUser.name}
-                  onChange={(event) =>
-                    updateProfile({ name: event.target.value })
-                  }
+                  value={draftName}
+                  onChange={(event) => setDraftName(event.target.value)}
                   className="w-full rounded-[var(--radius-sm)] border-0 bg-bg px-3 py-2 text-lg font-bold outline-none ring-accent focus:ring-2"
                 />
               ) : (
@@ -113,8 +142,8 @@ export default function ProfilePage() {
                   <Chip
                     key={role}
                     label={role}
-                    selected={currentUser.role === role}
-                    onClick={() => updateProfile({ role: role as Role })}
+                    selected={draftRole === role}
+                    onClick={() => setDraftRole(role)}
                   />
                 ))}
               </div>
@@ -130,8 +159,8 @@ export default function ProfilePage() {
             <h3 className="text-[15px] font-bold text-ink">Tentang</h3>
             {isEditing ? (
               <textarea
-                value={currentUser.about}
-                onChange={(event) => updateProfile({ about: event.target.value })}
+                value={draftAbout}
+                onChange={(event) => setDraftAbout(event.target.value)}
                 rows={3}
                 placeholder="Cerita singkat tentang kamu"
                 className="mt-3 w-full resize-none rounded-[var(--radius-sm)] border-0 bg-bg px-4 py-3 text-sm outline-none ring-accent focus:ring-2"
@@ -200,14 +229,6 @@ export default function ProfilePage() {
           className="mt-3 w-full rounded-full border border-ink/10 bg-white px-5 py-3.5 text-sm font-bold text-ink disabled:opacity-50"
         >
           {isSigningOut ? "Keluar..." : "Keluar"}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => void handleReset()}
-          className="mt-3 w-full rounded-full border border-danger/20 bg-danger-soft px-5 py-3.5 text-sm font-bold text-danger"
-        >
-          Reset demo (hapus akun lokal)
         </button>
       </div>
     </div>

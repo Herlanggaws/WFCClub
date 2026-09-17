@@ -29,17 +29,28 @@ export default function OnboardingPage() {
     if (!session) return;
     if (step !== "done" || !role) return;
 
+    let cancelled = false;
+
     const timer = window.setTimeout(() => {
-      completeOnboarding({
-        name,
-        role,
-        interests,
-        lookingFor,
-      });
-      router.replace("/home");
+      void (async () => {
+        try {
+          await completeOnboarding({
+            name,
+            role,
+            interests,
+            lookingFor,
+          });
+          if (!cancelled) router.replace("/home");
+        } catch {
+          if (!cancelled) setStepIndex(STEPS.indexOf("intent"));
+        }
+      })();
     }, 1400);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [
     session,
     step,

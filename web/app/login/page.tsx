@@ -27,7 +27,7 @@ export default function LoginPage() {
 
     try {
       const session = await auth.signIn({ email, password });
-      applySession(session);
+      await applySession(session);
 
       const { isOnboarded } = useAppStore.getState();
       router.replace(isOnboarded ? "/home" : "/onboarding");

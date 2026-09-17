@@ -40,7 +40,7 @@ export default function SignupPage() {
 
     try {
       const session = await auth.signUp({ email, password });
-      applySession(session);
+      await applySession(session);
       router.replace("/onboarding");
     } catch (err) {
       const message =

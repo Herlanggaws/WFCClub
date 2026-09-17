@@ -1,495 +1,247 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import { auth, type AuthSession } from "../auth";
-import { STORAGE_KEY, initialsFromName, todayIsoDate } from "../constants";
 import {
-  MOCK_PEOPLE,
-  createMockEvents,
-  createMockSessions,
-} from "../mock";
+  cancelRsvpRow,
+  completeProfileOnboarding,
+  createSessionRow,
+  ensureProfile,
+  fetchEvents,
+  fetchOnboardedPeople,
+  fetchSessions,
+  joinSessionRow,
+  leaveSessionRow,
+  profileToCurrentUser,
+  rsvpEventRow,
+  updateProfileRow,
+  type CreateSessionInput,
+  type CompleteOnboardingInput,
+} from "../supabase/data";
 import type {
   CommunityEvent,
   CurrentUserProfile,
-  Interest,
-  LookingFor,
-  Role,
+  User,
   WfcSession,
 } from "../types";
 
-interface CreateSessionInput {
-  place: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  note?: string;
-  topic?: string;
-}
-
-interface CompleteOnboardingInput {
-  name: string;
-  role: Role;
-  interests: Interest[];
-  lookingFor: LookingFor[];
-}
-
-interface UserBucket {
-  isOnboarded: boolean;
-  currentUser: CurrentUserProfile | null;
-  createdSessions: WfcSession[];
-  joinedSessionIds: string[];
-  rsvpedEventIds: string[];
-}
-
 interface AppStore {
   hydrated: boolean;
+  loading: boolean;
+  error: string | null;
   session: AuthSession | null;
   isOnboarded: boolean;
   currentUser: CurrentUserProfile | null;
   sessions: WfcSession[];
   events: CommunityEvent[];
-  people: typeof MOCK_PEOPLE;
-  createdSessions: WfcSession[];
+  people: User[];
   joinedSessionIds: string[];
   rsvpedEventIds: string[];
-  userBuckets: Record<string, UserBucket>;
   setHydrated: (value: boolean) => void;
-  applySession: (session: AuthSession | null) => void;
-  completeOnboarding: (input: CompleteOnboardingInput) => void;
-  updateProfile: (patch: Partial<CurrentUserProfile>) => void;
-  joinSession: (sessionId: string) => void;
-  leaveSession: (sessionId: string) => void;
-  createSession: (input: CreateSessionInput) => string;
-  rsvpEvent: (eventId: string) => void;
-  cancelRsvp: (eventId: string) => void;
+  bootstrap: () => Promise<void>;
+  applySession: (session: AuthSession | null) => Promise<void>;
+  refreshCommunity: () => Promise<void>;
+  completeOnboarding: (input: CompleteOnboardingInput) => Promise<void>;
+  updateProfile: (patch: Partial<CurrentUserProfile>) => Promise<void>;
+  joinSession: (sessionId: string) => Promise<void>;
+  leaveSession: (sessionId: string) => Promise<void>;
+  createSession: (input: CreateSessionInput) => Promise<string>;
+  rsvpEvent: (eventId: string) => Promise<void>;
+  cancelRsvp: (eventId: string) => Promise<void>;
   signOut: () => Promise<void>;
-  resetDemo: () => Promise<void>;
-  rebuildDerivable: () => void;
-  persistActiveBucket: () => void;
 }
 
-function emptyBucket(): UserBucket {
+function deriveJoined(sessions: WfcSession[], userId: string | null): string[] {
+  if (!userId) return [];
+  return sessions
+    .filter((session) => session.attendeeIds.includes(userId))
+    .map((session) => session.id);
+}
+
+function deriveRsvped(events: CommunityEvent[], userId: string | null): string[] {
+  if (!userId) return [];
+  return events
+    .filter((event) => event.attendeeIds.includes(userId))
+    .map((event) => event.id);
+}
+
+function clearUserState() {
   return {
+    session: null as AuthSession | null,
     isOnboarded: false,
-    currentUser: null,
-    createdSessions: [],
-    joinedSessionIds: [],
-    rsvpedEventIds: [],
+    currentUser: null as CurrentUserProfile | null,
+    sessions: [] as WfcSession[],
+    events: [] as CommunityEvent[],
+    people: [] as User[],
+    joinedSessionIds: [] as string[],
+    rsvpedEventIds: [] as string[],
+    error: null as string | null,
   };
 }
 
-function withCurrentUserAsAttendee(
-  sessions: WfcSession[],
-  joinedSessionIds: string[],
-  userId: string | null,
-): WfcSession[] {
-  if (!userId) return sessions;
+export const useAppStore = create<AppStore>()((set, get) => ({
+  hydrated: false,
+  loading: false,
+  session: null,
+  isOnboarded: false,
+  currentUser: null,
+  sessions: [],
+  events: [],
+  people: [],
+  joinedSessionIds: [],
+  rsvpedEventIds: [],
+  error: null,
 
-  return sessions.map((session) => {
-    const isJoined = joinedSessionIds.includes(session.id);
-    const withoutMe = session.attendeeIds.filter((id) => id !== userId);
-    return {
-      ...session,
-      attendeeIds: isJoined ? [...withoutMe, userId] : withoutMe,
-    };
-  });
-}
+  setHydrated: (value) => set({ hydrated: value }),
 
-function withCurrentUserAsEventAttendee(
-  events: CommunityEvent[],
-  rsvpedEventIds: string[],
-  userId: string | null,
-): CommunityEvent[] {
-  if (!userId) return events;
+  bootstrap: async () => {
+    const nextSession = await auth.getSession();
+    await get().applySession(nextSession);
+    set({ hydrated: true });
+  },
 
-  return events.map((event) => {
-    const isRsvped = rsvpedEventIds.includes(event.id);
-    const withoutMe = event.attendeeIds.filter((id) => id !== userId);
-    return {
-      ...event,
-      attendeeIds: isRsvped ? [...withoutMe, userId] : withoutMe,
-    };
-  });
-}
+  applySession: async (session) => {
+    if (!session) {
+      set(clearUserState());
+      return;
+    }
 
-function buildSessions(
-  createdSessions: WfcSession[],
-  joinedSessionIds: string[],
-  userId: string | null,
-): WfcSession[] {
-  const seed = createMockSessions();
-  const merged = [...createdSessions, ...seed];
-  return withCurrentUserAsAttendee(merged, joinedSessionIds, userId);
-}
+    set({ loading: true, error: null, session });
 
-function buildEvents(
-  rsvpedEventIds: string[],
-  userId: string | null,
-): CommunityEvent[] {
-  return withCurrentUserAsEventAttendee(
-    createMockEvents(),
-    rsvpedEventIds,
-    userId,
-  );
-}
+    try {
+      const profile = await ensureProfile(session.userId);
+      const [people, sessions, events] = await Promise.all([
+        fetchOnboardedPeople(),
+        fetchSessions(),
+        fetchEvents(),
+      ]);
 
-function saveBucket(
-  buckets: Record<string, UserBucket>,
-  userId: string,
-  bucket: UserBucket,
-): Record<string, UserBucket> {
-  return { ...buckets, [userId]: bucket };
-}
+      set({
+        session,
+        isOnboarded: profile.is_onboarded,
+        currentUser: profile.is_onboarded
+          ? profileToCurrentUser(profile)
+          : null,
+        people,
+        sessions,
+        events,
+        joinedSessionIds: deriveJoined(sessions, session.userId),
+        rsvpedEventIds: deriveRsvped(events, session.userId),
+        loading: false,
+        error: null,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Gagal memuat data.";
+      set({
+        session,
+        isOnboarded: false,
+        currentUser: null,
+        sessions: [],
+        events: [],
+        people: [],
+        joinedSessionIds: [],
+        rsvpedEventIds: [],
+        loading: false,
+        error: message,
+      });
+      throw error;
+    }
+  },
 
-export const useAppStore = create<AppStore>()(
-  persist(
-    (set, get) => ({
-      hydrated: false,
-      session: null,
-      isOnboarded: false,
-      currentUser: null,
-      sessions: buildSessions([], [], null),
-      events: buildEvents([], null),
-      people: MOCK_PEOPLE,
-      createdSessions: [],
-      joinedSessionIds: [],
-      rsvpedEventIds: [],
-      userBuckets: {},
+  refreshCommunity: async () => {
+    const { session } = get();
+    if (!session) return;
 
-      setHydrated: (value) => set({ hydrated: value }),
+    const [people, sessions, events] = await Promise.all([
+      fetchOnboardedPeople(),
+      fetchSessions(),
+      fetchEvents(),
+    ]);
 
-      persistActiveBucket: () => {
-        const {
-          session,
-          isOnboarded,
-          currentUser,
-          createdSessions,
-          joinedSessionIds,
-          rsvpedEventIds,
-          userBuckets,
-        } = get();
-        if (!session) return;
+    set({
+      people,
+      sessions,
+      events,
+      joinedSessionIds: deriveJoined(sessions, session.userId),
+      rsvpedEventIds: deriveRsvped(events, session.userId),
+    });
+  },
 
-        set({
-          userBuckets: saveBucket(userBuckets, session.userId, {
-            isOnboarded,
-            currentUser,
-            createdSessions,
-            joinedSessionIds,
-            rsvpedEventIds,
-          }),
-        });
-      },
+  completeOnboarding: async (input) => {
+    const { session } = get();
+    if (!session) return;
 
-      applySession: (session) => {
-        const { userBuckets } = get();
+    const currentUser = await completeProfileOnboarding(session.userId, input);
+    await get().refreshCommunity();
+    set({
+      isOnboarded: true,
+      currentUser,
+    });
+  },
 
-        if (!session) {
-          set({
-            session: null,
-            isOnboarded: false,
-            currentUser: null,
-            createdSessions: [],
-            joinedSessionIds: [],
-            rsvpedEventIds: [],
-            sessions: buildSessions([], [], null),
-            events: buildEvents([], null),
-          });
-          return;
-        }
+  updateProfile: async (patch) => {
+    const { session, currentUser } = get();
+    if (!session || !currentUser) return;
 
-        const bucket = userBuckets[session.userId] ?? emptyBucket();
-        set({
-          session,
-          isOnboarded: bucket.isOnboarded,
-          currentUser: bucket.currentUser,
-          createdSessions: bucket.createdSessions,
-          joinedSessionIds: bucket.joinedSessionIds,
-          rsvpedEventIds: bucket.rsvpedEventIds,
-          sessions: buildSessions(
-            bucket.createdSessions,
-            bucket.joinedSessionIds,
-            session.userId,
-          ),
-          events: buildEvents(bucket.rsvpedEventIds, session.userId),
-        });
-      },
+    const next = await updateProfileRow(session.userId, patch);
+    set({ currentUser: next });
+    await get().refreshCommunity();
+  },
 
-      rebuildDerivable: () => {
-        const { createdSessions, joinedSessionIds, rsvpedEventIds, session } =
-          get();
-        const userId = session?.userId ?? null;
-        set({
-          sessions: buildSessions(createdSessions, joinedSessionIds, userId),
-          events: buildEvents(rsvpedEventIds, userId),
-        });
-      },
+  joinSession: async (sessionId) => {
+    const { session, joinedSessionIds } = get();
+    if (!session || joinedSessionIds.includes(sessionId)) return;
 
-      completeOnboarding: (input) => {
-        const { session, userBuckets } = get();
-        if (!session) return;
+    await joinSessionRow(sessionId, session.userId);
+    await get().refreshCommunity();
+  },
 
-        const currentUser: CurrentUserProfile = {
-          name: input.name.trim(),
-          role: input.role,
-          interests: input.interests,
-          lookingFor: input.lookingFor,
-          city: "Bandung",
-          about: "",
-          company: "",
-          avatarHue: 175,
-          initials: initialsFromName(input.name),
-        };
+  leaveSession: async (sessionId) => {
+    const { session } = get();
+    if (!session) return;
 
-        const bucket: UserBucket = {
-          isOnboarded: true,
-          currentUser,
-          createdSessions: [],
-          joinedSessionIds: [],
-          rsvpedEventIds: [],
-        };
+    await leaveSessionRow(sessionId, session.userId);
+    await get().refreshCommunity();
+  },
 
-        set({
-          isOnboarded: true,
-          currentUser,
-          createdSessions: [],
-          joinedSessionIds: [],
-          rsvpedEventIds: [],
-          sessions: buildSessions([], [], session.userId),
-          events: buildEvents([], session.userId),
-          userBuckets: saveBucket(userBuckets, session.userId, bucket),
-        });
-      },
+  createSession: async (input) => {
+    const { session } = get();
+    if (!session) return "";
 
-      updateProfile: (patch) => {
-        const { currentUser, session, userBuckets, createdSessions, joinedSessionIds, rsvpedEventIds, isOnboarded } =
-          get();
-        if (!currentUser || !session) return;
+    const created = await createSessionRow(session.userId, input);
+    await get().refreshCommunity();
+    return created.id;
+  },
 
-        const next = { ...currentUser, ...patch };
-        if (patch.name) {
-          next.initials = initialsFromName(patch.name);
-        }
+  rsvpEvent: async (eventId) => {
+    const { session, rsvpedEventIds } = get();
+    if (!session || rsvpedEventIds.includes(eventId)) return;
 
-        set({
-          currentUser: next,
-          userBuckets: saveBucket(userBuckets, session.userId, {
-            isOnboarded,
-            currentUser: next,
-            createdSessions,
-            joinedSessionIds,
-            rsvpedEventIds,
-          }),
-        });
-      },
+    await rsvpEventRow(eventId, session.userId);
+    await get().refreshCommunity();
+  },
 
-      joinSession: (sessionId) => {
-        const {
-          joinedSessionIds,
-          createdSessions,
-          session,
-          userBuckets,
-          currentUser,
-          isOnboarded,
-          rsvpedEventIds,
-        } = get();
-        if (!session || joinedSessionIds.includes(sessionId)) return;
+  cancelRsvp: async (eventId) => {
+    const { session } = get();
+    if (!session) return;
 
-        const nextJoined = [...joinedSessionIds, sessionId];
-        set({
-          joinedSessionIds: nextJoined,
-          sessions: buildSessions(createdSessions, nextJoined, session.userId),
-          userBuckets: saveBucket(userBuckets, session.userId, {
-            isOnboarded,
-            currentUser,
-            createdSessions,
-            joinedSessionIds: nextJoined,
-            rsvpedEventIds,
-          }),
-        });
-      },
+    await cancelRsvpRow(eventId, session.userId);
+    await get().refreshCommunity();
+  },
 
-      leaveSession: (sessionId) => {
-        const {
-          joinedSessionIds,
-          createdSessions,
-          session,
-          userBuckets,
-          currentUser,
-          isOnboarded,
-          rsvpedEventIds,
-        } = get();
-        if (!session) return;
-
-        const nextJoined = joinedSessionIds.filter((id) => id !== sessionId);
-        set({
-          joinedSessionIds: nextJoined,
-          sessions: buildSessions(createdSessions, nextJoined, session.userId),
-          userBuckets: saveBucket(userBuckets, session.userId, {
-            isOnboarded,
-            currentUser,
-            createdSessions,
-            joinedSessionIds: nextJoined,
-            rsvpedEventIds,
-          }),
-        });
-      },
-
-      createSession: (input) => {
-        const {
-          session,
-          createdSessions,
-          joinedSessionIds,
-          userBuckets,
-          currentUser,
-          isOnboarded,
-          rsvpedEventIds,
-        } = get();
-        if (!session) return "";
-
-        const id = `s-${Date.now()}`;
-        const wfcSession: WfcSession = {
-          id,
-          place: input.place.trim(),
-          date: input.date || todayIsoDate(),
-          startTime: input.startTime,
-          endTime: input.endTime,
-          note: input.note?.trim() || undefined,
-          topic: input.topic?.trim() || undefined,
-          attendeeIds: [session.userId],
-          createdById: session.userId,
-        };
-
-        const nextCreated = [wfcSession, ...createdSessions];
-        const nextJoined = [...joinedSessionIds, id];
-
-        set({
-          createdSessions: nextCreated,
-          joinedSessionIds: nextJoined,
-          sessions: buildSessions(nextCreated, nextJoined, session.userId),
-          userBuckets: saveBucket(userBuckets, session.userId, {
-            isOnboarded,
-            currentUser,
-            createdSessions: nextCreated,
-            joinedSessionIds: nextJoined,
-            rsvpedEventIds,
-          }),
-        });
-
-        return id;
-      },
-
-      rsvpEvent: (eventId) => {
-        const {
-          rsvpedEventIds,
-          session,
-          userBuckets,
-          currentUser,
-          isOnboarded,
-          createdSessions,
-          joinedSessionIds,
-        } = get();
-        if (!session || rsvpedEventIds.includes(eventId)) return;
-
-        const nextRsvp = [...rsvpedEventIds, eventId];
-        set({
-          rsvpedEventIds: nextRsvp,
-          events: buildEvents(nextRsvp, session.userId),
-          userBuckets: saveBucket(userBuckets, session.userId, {
-            isOnboarded,
-            currentUser,
-            createdSessions,
-            joinedSessionIds,
-            rsvpedEventIds: nextRsvp,
-          }),
-        });
-      },
-
-      cancelRsvp: (eventId) => {
-        const {
-          rsvpedEventIds,
-          session,
-          userBuckets,
-          currentUser,
-          isOnboarded,
-          createdSessions,
-          joinedSessionIds,
-        } = get();
-        if (!session) return;
-
-        const nextRsvp = rsvpedEventIds.filter((id) => id !== eventId);
-        set({
-          rsvpedEventIds: nextRsvp,
-          events: buildEvents(nextRsvp, session.userId),
-          userBuckets: saveBucket(userBuckets, session.userId, {
-            isOnboarded,
-            currentUser,
-            createdSessions,
-            joinedSessionIds,
-            rsvpedEventIds: nextRsvp,
-          }),
-        });
-      },
-
-      signOut: async () => {
-        get().persistActiveBucket();
-        await auth.signOut();
-        get().applySession(null);
-      },
-
-      resetDemo: async () => {
-        const { session, userBuckets } = get();
-
-        if (session) {
-          await auth.deleteAccount(session.userId);
-          const nextBuckets = { ...userBuckets };
-          delete nextBuckets[session.userId];
-          set({
-            userBuckets: nextBuckets,
-            session: null,
-            isOnboarded: false,
-            currentUser: null,
-            createdSessions: [],
-            joinedSessionIds: [],
-            rsvpedEventIds: [],
-            sessions: buildSessions([], [], null),
-            events: buildEvents([], null),
-            people: MOCK_PEOPLE,
-          });
-          return;
-        }
-
-        await auth.signOut();
-        set({
-          session: null,
-          isOnboarded: false,
-          currentUser: null,
-          createdSessions: [],
-          joinedSessionIds: [],
-          rsvpedEventIds: [],
-          sessions: buildSessions([], [], null),
-          events: buildEvents([], null),
-          people: MOCK_PEOPLE,
-        });
-      },
-    }),
-    {
-      name: STORAGE_KEY,
-      skipHydration: true,
-      partialize: (state) => ({
-        userBuckets: state.userBuckets,
-      }),
-    },
-  ),
-);
+  signOut: async () => {
+    await auth.signOut();
+    set(clearUserState());
+  },
+}));
 
 export function useCurrentUserId() {
   return useAppStore((s) => s.session?.userId ?? null);
 }
 
 export function resolvePerson(
-  people: typeof MOCK_PEOPLE,
+  people: User[],
   currentUser: CurrentUserProfile | null,
   id: string,
   currentUserId?: string | null,
