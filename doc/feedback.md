@@ -8,7 +8,7 @@ Sumber: tabel `public.feedback` (Supabase) — 15 rows, semua kategori `saran`.
 
 | ID | Status | Feedback | Selesai | Commit |
 |----|--------|----------|---------|--------|
-| FB-01 | done | Validasi end time harus setelah start time | 2026-09-18 | pending |
+| FB-01 | done | Validasi end time harus setelah start time | 2026-09-18 | 8b3f311 |
 
 ## Belum dikerjakan
 
