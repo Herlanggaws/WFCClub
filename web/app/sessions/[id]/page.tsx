@@ -22,6 +22,7 @@ export default function SessionDetailPage({
   const [ctaPop, setCtaPop] = useState(false);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   const sessions = useAppStore((s) => s.sessions);
   const people = useAppStore((s) => s.people);
@@ -76,15 +77,18 @@ export default function SessionDetailPage({
     )
     .filter((person): person is NonNullable<typeof person> => person !== null);
 
-  function handleToggle() {
+  async function handleToggle() {
     setCtaPop(true);
     window.setTimeout(() => setCtaPop(false), 500);
+    setJoinError(null);
 
     if (isJoined) {
       void leaveSession(id);
       return;
     }
-    void joinSession(id);
+
+    const errorMessage = await joinSession(id);
+    if (errorMessage) setJoinError(errorMessage);
   }
 
   async function handleShare() {
@@ -163,7 +167,7 @@ export default function SessionDetailPage({
 
           <button
             type="button"
-            onClick={handleToggle}
+            onClick={() => void handleToggle()}
             className={`mt-6 w-full ${ctaPop ? "animate-cta-pop" : ""} ${
               isJoined ? "btn-secondary" : "btn-primary"
             }`}
@@ -176,6 +180,12 @@ export default function SessionDetailPage({
               </>
             )}
           </button>
+
+          {joinError ? (
+            <p className="mt-3 rounded-[var(--radius-sm)] bg-red-50 px-4 py-3 text-sm text-red-700">
+              {joinError}
+            </p>
+          ) : null}
 
           <button
             type="button"

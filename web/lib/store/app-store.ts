@@ -24,6 +24,7 @@ import type {
   User,
   WfcSession,
 } from "../types";
+import { timesOverlap } from "../constants";
 
 interface AppStore {
   hydrated: boolean;
@@ -43,7 +44,7 @@ interface AppStore {
   refreshCommunity: () => Promise<void>;
   completeOnboarding: (input: CompleteOnboardingInput) => Promise<void>;
   updateProfile: (patch: Partial<CurrentUserProfile>) => Promise<void>;
-  joinSession: (sessionId: string) => Promise<void>;
+  joinSession: (sessionId: string) => Promise<string | null>;
   leaveSession: (sessionId: string) => Promise<void>;
   createSession: (input: CreateSessionInput) => Promise<string>;
   rsvpEvent: (eventId: string) => Promise<void>;
@@ -190,11 +191,32 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   },
 
   joinSession: async (sessionId) => {
-    const { session, joinedSessionIds } = get();
-    if (!session || joinedSessionIds.includes(sessionId)) return;
+    const { session, joinedSessionIds, sessions } = get();
+    if (!session || joinedSessionIds.includes(sessionId)) return null;
+
+    const target = sessions.find((item) => item.id === sessionId);
+    if (!target) return "Sesi tidak ditemukan.";
+
+    const overlapping = sessions.find(
+      (item) =>
+        item.id !== target.id &&
+        joinedSessionIds.includes(item.id) &&
+        item.date === target.date &&
+        timesOverlap(
+          item.startTime,
+          item.endTime,
+          target.startTime,
+          target.endTime,
+        ),
+    );
+
+    if (overlapping) {
+      return `Kamu sudah ikut sesi lain yang overlap (${overlapping.place} ${overlapping.startTime}–${overlapping.endTime}).`;
+    }
 
     await joinSessionRow(sessionId, session.userId);
     await get().refreshCommunity();
+    return null;
   },
 
   leaveSession: async (sessionId) => {
