@@ -6,7 +6,7 @@ import { EventRow } from "@/components/EventRow";
 import { PersonCard } from "@/components/PersonCard";
 import { SessionRow } from "@/components/SessionRow";
 import { EmptyState } from "@/components/EmptyState";
-import { greetingForNow, todayIsoDate } from "@/lib/constants";
+import { greetingForNow, isSessionEnded, todayIsoDate } from "@/lib/constants";
 import { useAppStore } from "@/lib/store/app-store";
 
 export default function HomePage() {
@@ -20,7 +20,10 @@ export default function HomePage() {
   const today = todayIsoDate();
 
   const todaySessions = sessions
-    .filter((session) => session.date === today)
+    .filter(
+      (session) =>
+        session.date === today && !isSessionEnded(session.date, session.endTime),
+    )
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
   const wfcTodayIds = new Set(
