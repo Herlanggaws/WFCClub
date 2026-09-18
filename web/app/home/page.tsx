@@ -89,6 +89,9 @@ export default function HomePage() {
                 key={session.id}
                 session={session}
                 isJoined={joinedSessionIds.includes(session.id)}
+                onLeave={(sessionId) => {
+                  void leaveSession(sessionId);
+                }}
               />
             ))}
           </div>
