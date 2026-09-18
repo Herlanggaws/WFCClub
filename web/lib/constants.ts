@@ -88,3 +88,44 @@ export function greetingForNow(): string {
   if (hour < 18) return "Selamat sore";
   return "Selamat malam";
 }
+
+export function isEndAfterStart(startTime: string, endTime: string): boolean {
+  return endTime > startTime;
+}
+
+export function sessionDateTime(isoDate: string, time: string): Date {
+  return new Date(`${isoDate}T${time}:00`);
+}
+
+export function isSessionStartInPast(isoDate: string, startTime: string): boolean {
+  return sessionDateTime(isoDate, startTime).getTime() < Date.now();
+}
+
+export function isSessionEnded(isoDate: string, endTime: string): boolean {
+  return sessionDateTime(isoDate, endTime).getTime() < Date.now();
+}
+
+export function isSessionStarted(isoDate: string, startTime: string): boolean {
+  return sessionDateTime(isoDate, startTime).getTime() <= Date.now();
+}
+
+export type SessionPhase = "planned" | "live" | "ended";
+
+export function getSessionPhase(
+  isoDate: string,
+  startTime: string,
+  endTime: string,
+): SessionPhase {
+  if (isSessionEnded(isoDate, endTime)) return "ended";
+  if (isSessionStarted(isoDate, startTime)) return "live";
+  return "planned";
+}
+
+export function timesOverlap(
+  startA: string,
+  endA: string,
+  startB: string,
+  endB: string,
+): boolean {
+  return startA < endB && startB < endA;
+}
