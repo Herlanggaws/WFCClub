@@ -2,7 +2,7 @@
 
 Sumber: tabel `public.feedback` (Supabase) — 15 rows, semua kategori `saran`.
 
-**Progress:** 8 done · 1 todo · 6 pending-validation
+**Progress:** 9 done · 0 todo · 6 pending-validation
 
 ## Sudah dikerjakan
 
@@ -16,14 +16,13 @@ Sumber: tabel `public.feedback` (Supabase) — 15 rows, semua kategori `saran`.
 | FB-06 | done | Highlight session aktif + leave di home | 2026-09-18 | e8c4e38 |
 | FB-07 | done | Hide session yang sudah lewat endTime di home | 2026-09-18 | 4f9c08b |
 | FB-08 | done | Blok join session yang overlap waktu | 2026-09-18 | e9d57bd |
+| FB-09 | done | Edit session sebelum melewati jam selesai | 2026-09-18 | 094ca5f |
 
 ## Belum dikerjakan
 
 ### Batch ini (`todo`)
 
-| ID | Status | Feedback | Tanggal |
-|----|--------|----------|---------|
-| FB-09 | todo | Edit session sebelum melewati jam selesai | 2026-09-18 |
+_Semua item batch ini sudah dikerjakan._
 
 ### Pending validation (butuh keputusan produk)
 
