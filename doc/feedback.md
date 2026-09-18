@@ -2,11 +2,13 @@
 
 Sumber: tabel `public.feedback` (Supabase) — 15 rows, semua kategori `saran`.
 
-**Progress:** 0 done · 9 todo · 6 pending-validation
+**Progress:** 1 done · 8 todo · 6 pending-validation
 
 ## Sudah dikerjakan
 
-_Belum ada._
+| ID | Status | Feedback | Selesai | Commit |
+|----|--------|----------|---------|--------|
+| FB-01 | done | Validasi end time harus setelah start time | 2026-09-18 | pending |
 
 ## Belum dikerjakan
 
@@ -14,7 +16,6 @@ _Belum ada._
 
 | ID | Status | Feedback | Tanggal |
 |----|--------|----------|---------|
-| FB-01 | todo | Validasi end time harus setelah start time (“bisa time travel… start 7.30 - selesai 7.00”) | 2026-09-18 |
 | FB-02 | todo | Validasi tidak boleh buat session di masa lalu (“skrg jam 7.53 tpi bisa bikin event 7.00”) | 2026-09-18 |
 | FB-03 | todo | Copy “X orang ikut” saat masih plan — pakai wording rencana (“harusnya klo bkin event trus blum jamnya, jangan bilang X ikut”) | 2026-09-18 |
 | FB-04 | todo | Tab Events kosong padahal sudah buat WFC session — clarify beda event komunitas vs WFC | 2026-09-18 |
