@@ -2,7 +2,7 @@
 
 Sumber: tabel `public.feedback` (Supabase) — 15 rows, semua kategori `saran`.
 
-**Progress:** 5 done · 4 todo · 6 pending-validation
+**Progress:** 6 done · 3 todo · 6 pending-validation
 
 ## Sudah dikerjakan
 
@@ -13,6 +13,7 @@ Sumber: tabel `public.feedback` (Supabase) — 15 rows, semua kategori `saran`.
 | FB-03 | done | Copy “ikut” vs “akan ikut” saat masih plan | 2026-09-18 | 12b2b13 |
 | FB-04 | done | Clarify tab Events vs WFC session | 2026-09-18 | 513753e |
 | FB-05 | done | Topic preset chips + Lainnya | 2026-09-18 | 5014cbd |
+| FB-06 | done | Highlight session aktif + leave di home | 2026-09-18 | e8c4e38 |
 
 ## Belum dikerjakan
 
@@ -20,7 +21,6 @@ Sumber: tabel `public.feedback` (Supabase) — 15 rows, semua kategori `saran`.
 
 | ID | Status | Feedback | Tanggal |
 |----|--------|----------|---------|
-| FB-06 | todo | Highlight session yang sedang di-join + leave tanpa harus ke detail | 2026-09-18 |
 | FB-07 | todo | Auto-end / hide session yang sudah lewat jam selesai | 2026-09-18 |
 | FB-08 | todo | Blok join 2 session yang overlap waktu | 2026-09-18 |
 | FB-09 | todo | Edit session sebelum melewati jam selesai | 2026-09-18 |
