@@ -291,6 +291,31 @@ export async function createSessionRow(
   return session;
 }
 
+export async function updateSessionRow(
+  sessionId: string,
+  userId: string,
+  input: CreateSessionInput,
+): Promise<WfcSession> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("wfc_sessions")
+    .update({
+      place: input.place.trim(),
+      date: input.date,
+      start_time: input.startTime,
+      end_time: input.endTime,
+      note: input.note?.trim() || null,
+      topic: input.topic?.trim() || null,
+    })
+    .eq("id", sessionId)
+    .eq("created_by", userId)
+    .select("*, session_attendees(user_id)")
+    .single();
+
+  if (error) throw error;
+  return mapSession(data as SessionRow);
+}
+
 export async function joinSessionRow(
   sessionId: string,
   userId: string,

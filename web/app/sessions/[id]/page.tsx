@@ -61,6 +61,8 @@ export default function SessionDetailPage({
     activeSession.endTime,
   );
   const isPlanned = phase === "planned";
+  const canEdit =
+    meId === activeSession.createdById && phase !== "ended";
   const attendeeCountLabel = isPlanned
     ? `${activeSession.attendeeIds.length} orang akan ikut`
     : `${activeSession.attendeeIds.length} orang ikut`;
@@ -195,6 +197,15 @@ export default function SessionDetailPage({
           >
             {isSharing ? "sharing..." : "invite"}
           </button>
+
+          {canEdit ? (
+            <Link
+              href={`/sessions/${activeSession.id}/edit`}
+              className="btn-secondary mt-3 flex w-full items-center justify-center"
+            >
+              edit sesi
+            </Link>
+          ) : null}
 
           {isJoined ? (
             <p className="mt-3 text-center text-sm font-semibold text-live">

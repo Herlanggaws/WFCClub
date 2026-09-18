@@ -15,6 +15,7 @@ import {
   profileToCurrentUser,
   rsvpEventRow,
   updateProfileRow,
+  updateSessionRow,
   type CreateSessionInput,
   type CompleteOnboardingInput,
 } from "../supabase/data";
@@ -24,7 +25,7 @@ import type {
   User,
   WfcSession,
 } from "../types";
-import { timesOverlap } from "../constants";
+import { timesOverlap, isSessionEnded } from "../constants";
 
 interface AppStore {
   hydrated: boolean;
@@ -47,6 +48,10 @@ interface AppStore {
   joinSession: (sessionId: string) => Promise<string | null>;
   leaveSession: (sessionId: string) => Promise<void>;
   createSession: (input: CreateSessionInput) => Promise<string>;
+  updateSession: (
+    sessionId: string,
+    input: CreateSessionInput,
+  ) => Promise<string | null>;
   rsvpEvent: (eventId: string) => Promise<void>;
   cancelRsvp: (eventId: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -234,6 +239,24 @@ export const useAppStore = create<AppStore>()((set, get) => ({
     const created = await createSessionRow(session.userId, input);
     await get().refreshCommunity();
     return created.id;
+  },
+
+  updateSession: async (sessionId, input) => {
+    const { session, sessions } = get();
+    if (!session) return "Kamu perlu masuk dulu.";
+
+    const existing = sessions.find((item) => item.id === sessionId);
+    if (!existing) return "Sesi tidak ditemukan.";
+    if (existing.createdById !== session.userId) {
+      return "Hanya pembuat sesi yang bisa edit.";
+    }
+    if (isSessionEnded(existing.date, existing.endTime)) {
+      return "Sesi yang sudah selesai tidak bisa diedit.";
+    }
+
+    await updateSessionRow(sessionId, session.userId, input);
+    await get().refreshCommunity();
+    return null;
   },
 
   rsvpEvent: async (eventId) => {
