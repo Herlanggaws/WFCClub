@@ -2,7 +2,7 @@
 
 Sumber: tabel `public.feedback` (Supabase) — 15 rows, semua kategori `saran`.
 
-**Progress:** 3 done · 6 todo · 6 pending-validation
+**Progress:** 4 done · 5 todo · 6 pending-validation
 
 ## Sudah dikerjakan
 
@@ -11,6 +11,7 @@ Sumber: tabel `public.feedback` (Supabase) — 15 rows, semua kategori `saran`.
 | FB-01 | done | Validasi end time harus setelah start time | 2026-09-18 | 8b3f311 |
 | FB-02 | done | Validasi tidak boleh buat session di masa lalu | 2026-09-18 | 0a5e0fa |
 | FB-03 | done | Copy “ikut” vs “akan ikut” saat masih plan | 2026-09-18 | 12b2b13 |
+| FB-04 | done | Clarify tab Events vs WFC session | 2026-09-18 | 513753e |
 
 ## Belum dikerjakan
 
@@ -18,7 +19,6 @@ Sumber: tabel `public.feedback` (Supabase) — 15 rows, semua kategori `saran`.
 
 | ID | Status | Feedback | Tanggal |
 |----|--------|----------|---------|
-| FB-04 | todo | Tab Events kosong padahal sudah buat WFC session — clarify beda event komunitas vs WFC | 2026-09-18 |
 | FB-05 | todo | Topic: preset pilihan dulu, baru “Lainnya” free text | 2026-09-18 |
 | FB-06 | todo | Highlight session yang sedang di-join + leave tanpa harus ke detail | 2026-09-18 |
 | FB-07 | todo | Auto-end / hide session yang sudah lewat jam selesai | 2026-09-18 |
