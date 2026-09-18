@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { EmptyState } from "@/components/EmptyState";
 import { EventRow } from "@/components/EventRow";
 import { PageHeader } from "@/components/PageHeader";
@@ -22,7 +23,7 @@ export default function EventsPage() {
     <div>
       <PageHeader
         title="events"
-        subtitle="Aktivitas komunitas yang worth ditemuin."
+        subtitle="Aktivitas komunitas resmi — bukan sesi WFC harian."
       />
 
       <div className="px-4 py-4">
@@ -32,8 +33,13 @@ export default function EventsPage() {
 
         {upcoming.length === 0 ? (
           <EmptyState
-            title="Belum ada event"
-            description="Event komunitas akan muncul di sini."
+            title="Belum ada event komunitas"
+            description="Tab ini untuk event resmi komunitas. Sesi WFC yang kamu buat muncul di Home."
+            action={
+              <Link href="/home" className="btn-primary text-sm">
+                Lihat WFC hari ini
+              </Link>
+            }
           />
         ) : (
           <div className="space-y-3.5 animate-rise">
