@@ -13,9 +13,10 @@ import type { WfcSession } from "@/lib/types";
 interface SessionRowProps {
   session: WfcSession;
   isJoined?: boolean;
+  onLeave?: (sessionId: string) => void;
 }
 
-export function SessionRow({ session, isJoined }: SessionRowProps) {
+export function SessionRow({ session, isJoined, onLeave }: SessionRowProps) {
   const people = useAppStore((s) => s.people);
   const currentUser = useAppStore((s) => s.currentUser);
   const meId = useCurrentUserId();
@@ -33,12 +34,13 @@ export function SessionRow({ session, isJoined }: SessionRowProps) {
     phase === "planned" ? "Kamu rencana ikut" : "Kamu ikut";
 
   return (
-    <Link
-      href={`/sessions/${session.id}`}
-      className="card-surface block px-5 py-5 transition-transform active:scale-[0.99]"
+    <div
+      className={`card-surface px-5 py-5 transition-transform active:scale-[0.99] ${
+        isJoined ? "ring-2 ring-live bg-live-soft/40" : ""
+      }`}
     >
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
+        <Link href={`/sessions/${session.id}`} className="min-w-0 flex-1">
           <p className="flex items-center gap-2 text-[13px] font-medium text-muted">
             <span
               className="inline-flex h-5 w-5 items-center justify-center rounded-[30%] text-[11px]"
@@ -75,15 +77,29 @@ export function SessionRow({ session, isJoined }: SessionRowProps) {
               {joinedLabel}
             </p>
           ) : (
-            <span className="btn-primary mt-4 px-4 py-2 text-sm">
+            <span className="btn-primary mt-4 inline-flex px-4 py-2 text-sm">
               join
               <span aria-hidden>→</span>
             </span>
           )}
-        </div>
+        </Link>
 
-        <AvatarCluster people={attendees} totalCount={session.attendeeIds.length} />
+        <div className="flex flex-col items-end gap-3">
+          <AvatarCluster
+            people={attendees}
+            totalCount={session.attendeeIds.length}
+          />
+          {isJoined && onLeave ? (
+            <button
+              type="button"
+              onClick={() => onLeave(session.id)}
+              className="btn-secondary px-3 py-1.5 text-xs"
+            >
+              leave
+            </button>
+          ) : null}
+        </div>
       </div>
-    </Link>
+    </div>
   );
 }

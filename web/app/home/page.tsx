@@ -16,6 +16,7 @@ export default function HomePage() {
   const people = useAppStore((s) => s.people);
   const joinedSessionIds = useAppStore((s) => s.joinedSessionIds);
   const rsvpedEventIds = useAppStore((s) => s.rsvpedEventIds);
+  const leaveSession = useAppStore((s) => s.leaveSession);
   const today = todayIsoDate();
 
   const todaySessions = sessions
