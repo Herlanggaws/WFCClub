@@ -3,7 +3,7 @@
 import { type FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
-import { isEndAfterStart, todayIsoDate } from "@/lib/constants";
+import { isEndAfterStart, isSessionStartInPast, todayIsoDate } from "@/lib/constants";
 import { useAppStore } from "@/lib/store/app-store";
 
 export default function CreateSessionPage() {
@@ -25,6 +25,11 @@ export default function CreateSessionPage() {
 
     if (!isEndAfterStart(startTime, endTime)) {
       setError("Jam selesai harus setelah jam mulai.");
+      return;
+    }
+
+    if (isSessionStartInPast(date, startTime)) {
+      setError("Jam mulai tidak boleh di masa lalu.");
       return;
     }
 
