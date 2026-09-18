@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Avatar } from "@/components/Avatar";
 import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
-import { formatDisplayDate } from "@/lib/constants";
+import { formatDisplayDate, getSessionPhase } from "@/lib/constants";
 import {
   resolvePerson,
   useAppStore,
@@ -54,6 +54,21 @@ export default function SessionDetailPage({
   }
 
   const activeSession = session;
+  const phase = getSessionPhase(
+    activeSession.date,
+    activeSession.startTime,
+    activeSession.endTime,
+  );
+  const isPlanned = phase === "planned";
+  const attendeeCountLabel = isPlanned
+    ? `${activeSession.attendeeIds.length} orang akan ikut`
+    : `${activeSession.attendeeIds.length} orang ikut`;
+  const attendeeSectionTitle = isPlanned
+    ? "orang yang akan ikut"
+    : "orang yang ikut";
+  const joinedStatusLabel = isPlanned
+    ? "✓ kamu rencana ikut sesi ini"
+    : "✓ kamu ikut di sesi ini";
 
   const attendees = activeSession.attendeeIds
     .map((attendeeId) =>
@@ -131,7 +146,7 @@ export default function SessionDetailPage({
             – {activeSession.endTime}
           </p>
           <p className="mt-2 text-[15px] font-semibold text-ink">
-            {activeSession.attendeeIds.length} orang ikut
+            {attendeeCountLabel}
           </p>
 
           {activeSession.note ? (
@@ -173,7 +188,7 @@ export default function SessionDetailPage({
 
           {isJoined ? (
             <p className="mt-3 text-center text-sm font-semibold text-live">
-              ✓ kamu ikut di sesi ini
+              {joinedStatusLabel}
             </p>
           ) : null}
 
@@ -189,7 +204,7 @@ export default function SessionDetailPage({
 
         <section className="mt-6">
           <h2 className="mb-3 px-1 text-[15px] font-bold text-ink">
-            orang yang ikut
+            {attendeeSectionTitle}
           </h2>
           <ul className="space-y-3">
             {attendees.map((person) => (

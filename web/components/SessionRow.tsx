@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AvatarCluster } from "./AvatarCluster";
+import { getSessionPhase } from "@/lib/constants";
 import {
   resolvePerson,
   useAppStore,
@@ -27,6 +28,9 @@ export function SessionRow({ session, isJoined }: SessionRowProps) {
   const title = session.topic
     ? `${session.place} · ${session.topic}`
     : session.place;
+  const phase = getSessionPhase(session.date, session.startTime, session.endTime);
+  const joinedLabel =
+    phase === "planned" ? "Kamu rencana ikut" : "Kamu ikut";
 
   return (
     <Link
@@ -68,7 +72,7 @@ export function SessionRow({ session, isJoined }: SessionRowProps) {
           {isJoined ? (
             <p className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-live">
               <span className="h-1.5 w-1.5 rounded-full bg-live" />
-              Kamu ikut
+              {joinedLabel}
             </p>
           ) : (
             <span className="btn-primary mt-4 px-4 py-2 text-sm">
