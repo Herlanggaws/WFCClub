@@ -368,16 +368,94 @@ export async function cancelRsvpRow(
 
 export type FeedbackCategory = "bug" | "saran" | "lainnya";
 
+const FEEDBACK_IMAGE_BUCKET = "feedback-images";
+const FEEDBACK_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const FEEDBACK_IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
+export class FeedbackImageError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "FeedbackImageError";
+  }
+}
+
+function extensionForMime(mime: string): string {
+  if (mime === "image/png") return "png";
+  if (mime === "image/webp") return "webp";
+  return "jpg";
+}
+
+async function uploadFeedbackImage(
+  userId: string,
+  file: File,
+): Promise<{ path: string; publicUrl: string }> {
+  if (!FEEDBACK_IMAGE_MIME_TYPES.has(file.type)) {
+    throw new FeedbackImageError(
+      "Format gambar harus JPEG, PNG, atau WebP.",
+    );
+  }
+  if (file.size > FEEDBACK_IMAGE_MAX_BYTES) {
+    throw new FeedbackImageError("Ukuran gambar maksimal 5MB.");
+  }
+
+  const supabase = getSupabaseBrowserClient();
+  const path = `${userId}/${crypto.randomUUID()}.${extensionForMime(file.type)}`;
+  const { error } = await supabase.storage
+    .from(FEEDBACK_IMAGE_BUCKET)
+    .upload(path, file, {
+      cacheControl: "3600",
+      contentType: file.type,
+      upsert: false,
+    });
+
+  if (error) {
+    throw new FeedbackImageError("Gagal upload gambar. Coba lagi.");
+  }
+
+  const { data } = supabase.storage
+    .from(FEEDBACK_IMAGE_BUCKET)
+    .getPublicUrl(path);
+
+  return { path, publicUrl: data.publicUrl };
+}
+
 export async function createFeedbackRow(input: {
   userId: string;
   category: FeedbackCategory;
   message: string;
+  imageFile?: File | null;
 }): Promise<void> {
   const supabase = getSupabaseBrowserClient();
+  let imageUrl: string | null = null;
+  let uploadedPath: string | null = null;
+
+  if (input.imageFile) {
+    const uploaded = await uploadFeedbackImage(input.userId, input.imageFile);
+    imageUrl = uploaded.publicUrl;
+    uploadedPath = uploaded.path;
+  }
+
   const { error } = await supabase.from("feedback").insert({
     user_id: input.userId,
     category: input.category,
     message: input.message.trim(),
+    image_url: imageUrl,
   });
-  if (error) throw error;
+
+  if (error) {
+    if (uploadedPath) {
+      try {
+        await supabase.storage
+          .from(FEEDBACK_IMAGE_BUCKET)
+          .remove([uploadedPath]);
+      } catch {
+        // Best-effort cleanup; still surface the insert failure.
+      }
+    }
+    throw error;
+  }
 }
