@@ -2,7 +2,7 @@
 
 Sumber: tabel `public.feedback` (Supabase) — 15 rows, semua kategori `saran`.
 
-**Progress:** 7 done · 2 todo · 6 pending-validation
+**Progress:** 8 done · 1 todo · 6 pending-validation
 
 ## Sudah dikerjakan
 
@@ -15,6 +15,7 @@ Sumber: tabel `public.feedback` (Supabase) — 15 rows, semua kategori `saran`.
 | FB-05 | done | Topic preset chips + Lainnya | 2026-09-18 | 5014cbd |
 | FB-06 | done | Highlight session aktif + leave di home | 2026-09-18 | e8c4e38 |
 | FB-07 | done | Hide session yang sudah lewat endTime di home | 2026-09-18 | 4f9c08b |
+| FB-08 | done | Blok join session yang overlap waktu | 2026-09-18 | e9d57bd |
 
 ## Belum dikerjakan
 
@@ -22,7 +23,6 @@ Sumber: tabel `public.feedback` (Supabase) — 15 rows, semua kategori `saran`.
 
 | ID | Status | Feedback | Tanggal |
 |----|--------|----------|---------|
-| FB-08 | todo | Blok join 2 session yang overlap waktu | 2026-09-18 |
 | FB-09 | todo | Edit session sebelum melewati jam selesai | 2026-09-18 |
 
 ### Pending validation (butuh keputusan produk)
