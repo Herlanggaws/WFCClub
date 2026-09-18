@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/Avatar";
 import { Chip } from "@/components/Chip";
@@ -10,21 +11,39 @@ import {
   LOOKING_FOR_OPTIONS,
   ROLES,
 } from "@/lib/constants";
-import { useAppStore } from "@/lib/store/app-store";
+import {
+  friendIdForUser,
+  useAppStore,
+  useCurrentUserId,
+} from "@/lib/store/app-store";
 import type { Interest, LookingFor, Role } from "@/lib/types";
 
 export default function ProfilePage() {
   const router = useRouter();
   const currentUser = useAppStore((s) => s.currentUser);
   const session = useAppStore((s) => s.session);
+  const people = useAppStore((s) => s.people);
+  const friendships = useAppStore((s) => s.friendships);
   const updateProfile = useAppStore((s) => s.updateProfile);
   const signOut = useAppStore((s) => s.signOut);
+  const meId = useCurrentUserId();
   const [isEditing, setIsEditing] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [draftName, setDraftName] = useState("");
   const [draftAbout, setDraftAbout] = useState("");
   const [draftRole, setDraftRole] = useState<Role>("Other");
+
+  const friends = useMemo(() => {
+    if (!meId) return [];
+    return friendships
+      .filter((item) => item.status === "accepted")
+      .map((item) => {
+        const friendId = friendIdForUser(item, meId);
+        return people.find((person) => person.id === friendId) ?? null;
+      })
+      .filter((person): person is NonNullable<typeof person> => person !== null);
+  }, [friendships, meId, people]);
 
   useEffect(() => {
     if (!currentUser || isEditing) return;
@@ -118,7 +137,7 @@ export default function ProfilePage() {
                 <input
                   value={draftName}
                   onChange={(event) => setDraftName(event.target.value)}
-                  className="w-full rounded-[var(--radius-sm)] border-0 bg-bg px-3 py-2 text-lg font-bold outline-none ring-accent focus:ring-2"
+                  className="w-full rounded-[var(--radius-sm)] border-0 bg-bg px-3 py-2 text-lg font-bold text-ink outline-none ring-accent focus:ring-2"
                 />
               ) : (
                 <h2 className="text-2xl font-bold tracking-tight text-ink">
@@ -163,7 +182,7 @@ export default function ProfilePage() {
                 onChange={(event) => setDraftAbout(event.target.value)}
                 rows={3}
                 placeholder="Cerita singkat tentang kamu"
-                className="mt-3 w-full resize-none rounded-[var(--radius-sm)] border-0 bg-bg px-4 py-3 text-sm outline-none ring-accent focus:ring-2"
+                className="mt-3 w-full resize-none rounded-[var(--radius-sm)] border-0 bg-bg px-4 py-3 text-sm text-ink outline-none placeholder:text-muted/70 ring-accent focus:ring-2"
               />
             ) : (
               <p className="mt-2 text-sm leading-relaxed text-muted">
@@ -204,6 +223,38 @@ export default function ProfilePage() {
                 ),
               )}
             </div>
+          </section>
+
+          <section className="mt-7">
+            <h3 className="text-[15px] font-bold text-ink">Teman</h3>
+            {friends.length === 0 ? (
+              <p className="mt-2 text-sm text-muted">
+                Belum ada teman. Tambah dari halaman People.
+              </p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {friends.map((friend) => (
+                  <li key={friend.id}>
+                    <Link
+                      href={`/people/${friend.id}`}
+                      className="flex items-center gap-3 rounded-[var(--radius-sm)] bg-bg px-3 py-3"
+                    >
+                      <Avatar
+                        initials={friend.initials}
+                        hue={friend.avatarHue}
+                      />
+                      <div className="min-w-0">
+                        <p className="font-bold text-ink">{friend.name}</p>
+                        <p className="truncate text-sm text-muted">
+                          {friend.role}
+                          {friend.company ? ` · ${friend.company}` : ""}
+                        </p>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
           <section className="mt-7 rounded-[var(--radius-sm)] bg-bg px-4 py-4">

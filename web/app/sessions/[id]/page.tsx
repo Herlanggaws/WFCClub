@@ -1,17 +1,20 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/Avatar";
 import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
 import { formatDisplayDate, getSessionPhase } from "@/lib/constants";
+import { fetchSessionInviteeIds } from "@/lib/supabase/data";
 import {
+  friendIdForUser,
   resolvePerson,
   useAppStore,
   useCurrentUserId,
 } from "@/lib/store/app-store";
 import { buildSessionSharePayload, shareOrCopy } from "@/lib/share";
+import type { User } from "@/lib/types";
 
 export default function SessionDetailPage({
   params,
@@ -23,17 +26,86 @@ export default function SessionDetailPage({
   const [shareStatus, setShareStatus] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [inviteSearch, setInviteSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [alreadyInvitedIds, setAlreadyInvitedIds] = useState<string[]>([]);
+  const [inviteStatus, setInviteStatus] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [isInviting, setIsInviting] = useState(false);
 
   const sessions = useAppStore((s) => s.sessions);
   const people = useAppStore((s) => s.people);
+  const friendships = useAppStore((s) => s.friendships);
   const currentUser = useAppStore((s) => s.currentUser);
   const joinedSessionIds = useAppStore((s) => s.joinedSessionIds);
   const joinSession = useAppStore((s) => s.joinSession);
   const leaveSession = useAppStore((s) => s.leaveSession);
+  const inviteToSession = useAppStore((s) => s.inviteToSession);
   const meId = useCurrentUserId();
 
   const session = sessions.find((item) => item.id === id);
   const isJoined = joinedSessionIds.includes(id);
+
+  useEffect(() => {
+    if (!isInviteOpen) return;
+
+    let cancelled = false;
+    void fetchSessionInviteeIds(id)
+      .then((ids) => {
+        if (!cancelled) setAlreadyInvitedIds(ids);
+      })
+      .catch(() => {
+        if (!cancelled) setAlreadyInvitedIds([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, isInviteOpen]);
+
+  const friendIds = useMemo(() => {
+    if (!meId) return new Set<string>();
+    return new Set(
+      friendships
+        .filter((item) => item.status === "accepted")
+        .map((item) => friendIdForUser(item, meId)),
+    );
+  }, [friendships, meId]);
+
+  const inviteCandidates = useMemo(() => {
+    if (!session || !meId) {
+      return { friends: [] as User[], others: [] as User[] };
+    }
+
+    const excluded = new Set<string>([
+      meId,
+      ...session.attendeeIds,
+      ...alreadyInvitedIds,
+    ]);
+    const query = inviteSearch.trim().toLowerCase();
+
+    const eligible = people.filter((person) => {
+      if (excluded.has(person.id)) return false;
+      if (!query) return true;
+      return (
+        person.name.toLowerCase().includes(query) ||
+        person.role.toLowerCase().includes(query)
+      );
+    });
+
+    return {
+      friends: eligible.filter((person) => friendIds.has(person.id)),
+      others: eligible.filter((person) => !friendIds.has(person.id)),
+    };
+  }, [
+    alreadyInvitedIds,
+    friendIds,
+    inviteSearch,
+    meId,
+    people,
+    session,
+  ]);
 
   if (!session) {
     return (
@@ -127,6 +199,47 @@ export default function SessionDetailPage({
     }
   }
 
+  function openInvite() {
+    setSelectedIds([]);
+    setInviteSearch("");
+    setInviteError(null);
+    setInviteStatus(null);
+    setIsInviteOpen(true);
+  }
+
+  function closeInvite() {
+    setIsInviteOpen(false);
+    setSelectedIds([]);
+    setInviteSearch("");
+    setInviteError(null);
+  }
+
+  function toggleSelected(personId: string) {
+    setSelectedIds((current) =>
+      current.includes(personId)
+        ? current.filter((item) => item !== personId)
+        : [...current, personId],
+    );
+  }
+
+  async function handleSendInvites() {
+    if (selectedIds.length === 0 || isInviting) return;
+    setIsInviting(true);
+    setInviteError(null);
+
+    const errorMessage = await inviteToSession(id, selectedIds);
+    setIsInviting(false);
+
+    if (errorMessage) {
+      setInviteError(errorMessage);
+      return;
+    }
+
+    setInviteStatus(`Undangan terkirim ke ${selectedIds.length} orang`);
+    closeInvite();
+    window.setTimeout(() => setInviteStatus(null), 2500);
+  }
+
   return (
     <div>
       <PageHeader
@@ -138,7 +251,7 @@ export default function SessionDetailPage({
             onClick={() => void handleShare()}
             disabled={isSharing}
             className="flex h-10 w-10 items-center justify-center rounded-full text-ink transition active:bg-black/5 disabled:opacity-50"
-            aria-label="Bagikan undangan"
+            aria-label="Bagikan link"
           >
             <ShareIcon />
           </button>
@@ -191,11 +304,19 @@ export default function SessionDetailPage({
 
           <button
             type="button"
+            onClick={openInvite}
+            className="btn-secondary mt-3 w-full"
+          >
+            invite
+          </button>
+
+          <button
+            type="button"
             onClick={() => void handleShare()}
             disabled={isSharing}
-            className="btn-secondary mt-3 w-full disabled:opacity-50"
+            className="mt-3 w-full text-center text-sm font-semibold text-accent disabled:opacity-50"
           >
-            {isSharing ? "sharing..." : "invite"}
+            {isSharing ? "sharing..." : "Bagikan link"}
           </button>
 
           {canEdit ? (
@@ -219,6 +340,15 @@ export default function SessionDetailPage({
               className="mt-3 text-center text-sm font-semibold text-accent"
             >
               {shareStatus}
+            </p>
+          ) : null}
+
+          {inviteStatus ? (
+            <p
+              role="status"
+              className="mt-3 text-center text-sm font-semibold text-accent"
+            >
+              {inviteStatus}
             </p>
           ) : null}
         </div>
@@ -253,7 +383,140 @@ export default function SessionDetailPage({
           </ul>
         </section>
       </div>
+
+      {isInviteOpen ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 px-0 sm:items-center sm:px-4">
+          <button
+            type="button"
+            aria-label="Tutup"
+            className="absolute inset-0"
+            onClick={closeInvite}
+          />
+          <div className="relative z-10 flex max-h-[85vh] w-full max-w-[430px] flex-col rounded-t-[28px] bg-surface shadow-[var(--shadow)] sm:rounded-[28px]">
+            <div className="flex items-center justify-between border-b border-line px-5 py-4">
+              <h2 className="text-lg font-bold text-ink">Undang orang</h2>
+              <button
+                type="button"
+                onClick={closeInvite}
+                className="text-sm font-semibold text-muted"
+              >
+                Tutup
+              </button>
+            </div>
+
+            <div className="px-5 pt-4">
+              <input
+                value={inviteSearch}
+                onChange={(event) => setInviteSearch(event.target.value)}
+                placeholder="Cari nama..."
+                className="w-full rounded-[var(--radius-sm)] border-0 bg-bg px-4 py-3 text-sm text-ink outline-none placeholder:text-muted/70 ring-accent focus:ring-2"
+              />
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              {inviteCandidates.friends.length === 0 &&
+              inviteCandidates.others.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted">
+                  Tidak ada orang yang bisa diundang.
+                </p>
+              ) : (
+                <div className="space-y-5">
+                  {inviteCandidates.friends.length > 0 ? (
+                    <InvitePeopleSection
+                      title="Teman"
+                      people={inviteCandidates.friends}
+                      selectedIds={selectedIds}
+                      onToggle={toggleSelected}
+                    />
+                  ) : null}
+                  {inviteCandidates.others.length > 0 ? (
+                    <InvitePeopleSection
+                      title="Lainnya"
+                      people={inviteCandidates.others}
+                      selectedIds={selectedIds}
+                      onToggle={toggleSelected}
+                    />
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-line px-5 py-4 pb-[calc(1rem+var(--safe-bottom))]">
+              {inviteError ? (
+                <p className="mb-3 rounded-[var(--radius-sm)] bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {inviteError}
+                </p>
+              ) : null}
+              <button
+                type="button"
+                disabled={selectedIds.length === 0 || isInviting}
+                onClick={() => void handleSendInvites()}
+                className="btn-primary w-full disabled:opacity-50"
+              >
+                {isInviting
+                  ? "Mengirim..."
+                  : `Kirim undangan${selectedIds.length > 0 ? ` (${selectedIds.length})` : ""}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+function InvitePeopleSection({
+  title,
+  people,
+  selectedIds,
+  onToggle,
+}: {
+  title: string;
+  people: User[];
+  selectedIds: string[];
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <section>
+      <h3 className="mb-2 text-[13px] font-bold uppercase tracking-wide text-muted">
+        {title}
+      </h3>
+      <ul className="space-y-2">
+        {people.map((person) => {
+          const isSelected = selectedIds.includes(person.id);
+          return (
+            <li key={person.id}>
+              <button
+                type="button"
+                onClick={() => onToggle(person.id)}
+                className={`flex w-full items-center gap-3 rounded-[var(--radius-sm)] px-3 py-3 text-left transition ${
+                  isSelected ? "bg-accent-soft" : "bg-bg"
+                }`}
+              >
+                <Avatar initials={person.initials} hue={person.avatarHue} />
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-ink">{person.name}</p>
+                  <p className="truncate text-sm text-muted">
+                    {person.role}
+                    {person.company ? ` · ${person.company}` : ""}
+                  </p>
+                </div>
+                <span
+                  className={`flex h-5 w-5 items-center justify-center rounded-md border text-xs font-bold ${
+                    isSelected
+                      ? "border-accent bg-accent text-white"
+                      : "border-line text-transparent"
+                  }`}
+                  aria-hidden
+                >
+                  ✓
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 

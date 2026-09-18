@@ -1,8 +1,13 @@
 import type {
+  AppNotification,
   CommunityEvent,
   CurrentUserProfile,
+  Friendship,
+  FriendshipStatus,
   Interest,
   LookingFor,
+  NotificationTargetType,
+  NotificationType,
   Role,
   User,
   WfcSession,
@@ -458,4 +463,255 @@ export async function createFeedbackRow(input: {
     }
     throw error;
   }
+}
+
+interface FriendshipRow {
+  id: string;
+  requester_id: string;
+  addressee_id: string;
+  status: FriendshipStatus;
+  created_at: string;
+}
+
+interface NotificationRow {
+  id: string;
+  recipient_id: string;
+  actor_id: string | null;
+  type: NotificationType;
+  title: string;
+  body: string;
+  target_type: NotificationTargetType | null;
+  target_id: string | null;
+  read_at: string | null;
+  created_at: string;
+}
+
+function mapFriendship(row: FriendshipRow): Friendship {
+  return {
+    id: row.id,
+    requesterId: row.requester_id,
+    addresseeId: row.addressee_id,
+    status: row.status,
+    createdAt: row.created_at,
+  };
+}
+
+function mapNotification(row: NotificationRow): AppNotification {
+  return {
+    id: row.id,
+    recipientId: row.recipient_id,
+    actorId: row.actor_id,
+    type: row.type,
+    title: row.title,
+    body: row.body,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    readAt: row.read_at,
+    createdAt: row.created_at,
+  };
+}
+
+export async function fetchFriendships(userId: string): Promise<Friendship[]> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("friendships")
+    .select("id, requester_id, addressee_id, status, created_at")
+    .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
+    .in("status", ["pending", "accepted"])
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return ((data ?? []) as FriendshipRow[]).map(mapFriendship);
+}
+
+export async function sendFriendRequestRow(
+  requesterId: string,
+  addresseeId: string,
+  requesterName: string,
+): Promise<Friendship> {
+  if (requesterId === addresseeId) {
+    throw new Error("Tidak bisa menambah diri sendiri sebagai teman.");
+  }
+
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("friendships")
+    .insert({
+      requester_id: requesterId,
+      addressee_id: addresseeId,
+      status: "pending",
+    })
+    .select("id, requester_id, addressee_id, status, created_at")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("Permintaan teman sudah ada.");
+    }
+    throw error;
+  }
+
+  const { error: notifError } = await supabase.from("notifications").insert({
+    recipient_id: addresseeId,
+    actor_id: requesterId,
+    type: "friend_request",
+    title: "Permintaan teman",
+    body: `${requesterName} ingin berteman denganmu.`,
+    target_type: "person",
+    target_id: requesterId,
+  });
+
+  if (notifError) throw notifError;
+  return mapFriendship(data as FriendshipRow);
+}
+
+export async function respondFriendRequestRow(
+  friendshipId: string,
+  userId: string,
+  accept: boolean,
+  addresseeName: string,
+): Promise<void> {
+  const supabase = getSupabaseBrowserClient();
+  const nextStatus: FriendshipStatus = accept ? "accepted" : "declined";
+
+  const { data, error } = await supabase
+    .from("friendships")
+    .update({ status: nextStatus })
+    .eq("id", friendshipId)
+    .eq("addressee_id", userId)
+    .eq("status", "pending")
+    .select("id, requester_id, addressee_id, status, created_at")
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw new Error("Permintaan teman tidak ditemukan.");
+
+  if (accept) {
+    const { error: notifError } = await supabase.from("notifications").insert({
+      recipient_id: data.requester_id,
+      actor_id: userId,
+      type: "friend_accepted",
+      title: "Teman baru",
+      body: `${addresseeName} menerima permintaan temanmu.`,
+      target_type: "person",
+      target_id: userId,
+    });
+    if (notifError) throw notifError;
+  }
+}
+
+export async function removeFriendshipRow(
+  friendshipId: string,
+  userId: string,
+): Promise<void> {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase
+    .from("friendships")
+    .delete()
+    .eq("id", friendshipId)
+    .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
+
+  if (error) throw error;
+}
+
+export async function fetchSessionInviteeIds(
+  sessionId: string,
+): Promise<string[]> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("session_invites")
+    .select("invitee_id")
+    .eq("session_id", sessionId);
+
+  if (error) throw error;
+  return ((data ?? []) as { invitee_id: string }[]).map(
+    (row) => row.invitee_id,
+  );
+}
+
+export async function inviteToSessionRow(input: {
+  sessionId: string;
+  inviterId: string;
+  inviterName: string;
+  inviteeIds: string[];
+  place: string;
+  dateLabel: string;
+  startTime: string;
+  endTime: string;
+}): Promise<number> {
+  const uniqueIds = [...new Set(input.inviteeIds)].filter(
+    (id) => id !== input.inviterId,
+  );
+  if (uniqueIds.length === 0) return 0;
+
+  const supabase = getSupabaseBrowserClient();
+  const inviteRows = uniqueIds.map((inviteeId) => ({
+    session_id: input.sessionId,
+    inviter_id: input.inviterId,
+    invitee_id: inviteeId,
+  }));
+
+  const { data, error } = await supabase
+    .from("session_invites")
+    .upsert(inviteRows, {
+      onConflict: "session_id,invitee_id",
+      ignoreDuplicates: true,
+    })
+    .select("invitee_id");
+
+  if (error) throw error;
+
+  const insertedIds = ((data ?? []) as { invitee_id: string }[]).map(
+    (row) => row.invitee_id,
+  );
+  if (insertedIds.length === 0) return 0;
+
+  const notificationRows = insertedIds.map((inviteeId) => ({
+    recipient_id: inviteeId,
+    actor_id: input.inviterId,
+    type: "session_invite" as const,
+    title: "Undangan WFC",
+    body: `${input.inviterName} mengundangmu ke ${input.place} · ${input.dateLabel} ${input.startTime}–${input.endTime}`,
+    target_type: "session" as const,
+    target_id: input.sessionId,
+  }));
+
+  const { error: notifError } = await supabase
+    .from("notifications")
+    .insert(notificationRows);
+
+  if (notifError) throw notifError;
+  return insertedIds.length;
+}
+
+export async function fetchNotifications(
+  userId: string,
+): Promise<AppNotification[]> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("notifications")
+    .select(
+      "id, recipient_id, actor_id, type, title, body, target_type, target_id, read_at, created_at",
+    )
+    .eq("recipient_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (error) throw error;
+  return ((data ?? []) as NotificationRow[]).map(mapNotification);
+}
+
+export async function markNotificationReadRow(
+  notificationId: string,
+  userId: string,
+): Promise<void> {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("id", notificationId)
+    .eq("recipient_id", userId)
+    .is("read_at", null);
+
+  if (error) throw error;
 }

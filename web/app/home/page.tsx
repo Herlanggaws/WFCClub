@@ -14,10 +14,12 @@ export default function HomePage() {
   const sessions = useAppStore((s) => s.sessions);
   const events = useAppStore((s) => s.events);
   const people = useAppStore((s) => s.people);
+  const notifications = useAppStore((s) => s.notifications);
   const joinedSessionIds = useAppStore((s) => s.joinedSessionIds);
   const rsvpedEventIds = useAppStore((s) => s.rsvpedEventIds);
   const leaveSession = useAppStore((s) => s.leaveSession);
   const today = todayIsoDate();
+  const unreadCount = notifications.filter((item) => !item.readAt).length;
 
   const todaySessions = sessions
     .filter(
@@ -57,11 +59,14 @@ export default function HomePage() {
         </h1>
         <div className="flex items-center gap-3">
           <Link
-            href="/events"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-ink"
-            aria-label="Events"
+            href="/notifications"
+            className="relative flex h-10 w-10 items-center justify-center rounded-full text-ink"
+            aria-label="Notifikasi"
           >
             <BellIcon />
+            {unreadCount > 0 ? (
+              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent" />
+            ) : null}
           </Link>
           <Link href="/profile" aria-label="Profile">
             {currentUser ? (

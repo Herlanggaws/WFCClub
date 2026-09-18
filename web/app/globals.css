@@ -76,6 +76,8 @@ input,
 textarea,
 select {
   border-radius: var(--radius-sm);
+  color: var(--ink);
+  color-scheme: light;
 }
 
 @keyframes rise-in {

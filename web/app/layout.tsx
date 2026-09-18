@@ -36,7 +36,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="id" className={`${brand.variable} ${body.variable} h-full`}>
+    <html
+      lang="id"
+      className={`${brand.variable} ${body.variable} h-full`}
+      style={{ colorScheme: "light" }}
+    >
       <body className="min-h-full bg-bg antialiased">
         <AppGate>{children}</AppGate>
       </body>

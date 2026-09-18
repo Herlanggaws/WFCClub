@@ -8,24 +8,33 @@ import {
   createSessionRow,
   ensureProfile,
   fetchEvents,
+  fetchFriendships,
+  fetchNotifications,
   fetchOnboardedPeople,
   fetchSessions,
+  inviteToSessionRow,
   joinSessionRow,
   leaveSessionRow,
+  markNotificationReadRow,
   profileToCurrentUser,
+  removeFriendshipRow,
+  respondFriendRequestRow,
   rsvpEventRow,
+  sendFriendRequestRow,
   updateProfileRow,
   updateSessionRow,
   type CreateSessionInput,
   type CompleteOnboardingInput,
 } from "../supabase/data";
 import type {
+  AppNotification,
   CommunityEvent,
   CurrentUserProfile,
+  Friendship,
   User,
   WfcSession,
 } from "../types";
-import { timesOverlap, isSessionEnded } from "../constants";
+import { formatDisplayDate, timesOverlap, isSessionEnded } from "../constants";
 
 interface AppStore {
   hydrated: boolean;
@@ -37,6 +46,8 @@ interface AppStore {
   sessions: WfcSession[];
   events: CommunityEvent[];
   people: User[];
+  friendships: Friendship[];
+  notifications: AppNotification[];
   joinedSessionIds: string[];
   rsvpedEventIds: string[];
   setHydrated: (value: boolean) => void;
@@ -52,6 +63,17 @@ interface AppStore {
     sessionId: string,
     input: CreateSessionInput,
   ) => Promise<string | null>;
+  inviteToSession: (
+    sessionId: string,
+    inviteeIds: string[],
+  ) => Promise<string | null>;
+  sendFriendRequest: (addresseeId: string) => Promise<string | null>;
+  respondFriendRequest: (
+    friendshipId: string,
+    accept: boolean,
+  ) => Promise<string | null>;
+  removeFriendship: (friendshipId: string) => Promise<string | null>;
+  markNotificationRead: (notificationId: string) => Promise<void>;
   rsvpEvent: (eventId: string) => Promise<void>;
   cancelRsvp: (eventId: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -79,6 +101,8 @@ function clearUserState() {
     sessions: [] as WfcSession[],
     events: [] as CommunityEvent[],
     people: [] as User[],
+    friendships: [] as Friendship[],
+    notifications: [] as AppNotification[],
     joinedSessionIds: [] as string[],
     rsvpedEventIds: [] as string[],
     error: null as string | null,
@@ -94,6 +118,8 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   sessions: [],
   events: [],
   people: [],
+  friendships: [],
+  notifications: [],
   joinedSessionIds: [],
   rsvpedEventIds: [],
   error: null,
@@ -116,11 +142,14 @@ export const useAppStore = create<AppStore>()((set, get) => ({
 
     try {
       const profile = await ensureProfile(session.userId);
-      const [people, sessions, events] = await Promise.all([
-        fetchOnboardedPeople(),
-        fetchSessions(),
-        fetchEvents(),
-      ]);
+      const [people, sessions, events, friendships, notifications] =
+        await Promise.all([
+          fetchOnboardedPeople(),
+          fetchSessions(),
+          fetchEvents(),
+          fetchFriendships(session.userId),
+          fetchNotifications(session.userId),
+        ]);
 
       set({
         session,
@@ -131,6 +160,8 @@ export const useAppStore = create<AppStore>()((set, get) => ({
         people,
         sessions,
         events,
+        friendships,
+        notifications,
         joinedSessionIds: deriveJoined(sessions, session.userId),
         rsvpedEventIds: deriveRsvped(events, session.userId),
         loading: false,
@@ -146,6 +177,8 @@ export const useAppStore = create<AppStore>()((set, get) => ({
         sessions: [],
         events: [],
         people: [],
+        friendships: [],
+        notifications: [],
         joinedSessionIds: [],
         rsvpedEventIds: [],
         loading: false,
@@ -159,16 +192,21 @@ export const useAppStore = create<AppStore>()((set, get) => ({
     const { session } = get();
     if (!session) return;
 
-    const [people, sessions, events] = await Promise.all([
-      fetchOnboardedPeople(),
-      fetchSessions(),
-      fetchEvents(),
-    ]);
+    const [people, sessions, events, friendships, notifications] =
+      await Promise.all([
+        fetchOnboardedPeople(),
+        fetchSessions(),
+        fetchEvents(),
+        fetchFriendships(session.userId),
+        fetchNotifications(session.userId),
+      ]);
 
     set({
       people,
       sessions,
       events,
+      friendships,
+      notifications,
       joinedSessionIds: deriveJoined(sessions, session.userId),
       rsvpedEventIds: deriveRsvped(events, session.userId),
     });
@@ -259,6 +297,109 @@ export const useAppStore = create<AppStore>()((set, get) => ({
     return null;
   },
 
+  inviteToSession: async (sessionId, inviteeIds) => {
+    const { session, currentUser, sessions } = get();
+    if (!session || !currentUser) return "Kamu perlu masuk dulu.";
+
+    const target = sessions.find((item) => item.id === sessionId);
+    if (!target) return "Sesi tidak ditemukan.";
+
+    try {
+      await inviteToSessionRow({
+        sessionId,
+        inviterId: session.userId,
+        inviterName: currentUser.name,
+        inviteeIds,
+        place: target.place,
+        dateLabel: formatDisplayDate(target.date),
+        startTime: target.startTime,
+        endTime: target.endTime,
+      });
+      await get().refreshCommunity();
+      return null;
+    } catch (error) {
+      return error instanceof Error
+        ? error.message
+        : "Gagal mengirim undangan.";
+    }
+  },
+
+  sendFriendRequest: async (addresseeId) => {
+    const { session, currentUser } = get();
+    if (!session || !currentUser) return "Kamu perlu masuk dulu.";
+
+    try {
+      await sendFriendRequestRow(
+        session.userId,
+        addresseeId,
+        currentUser.name,
+      );
+      await get().refreshCommunity();
+      return null;
+    } catch (error) {
+      return error instanceof Error
+        ? error.message
+        : "Gagal mengirim permintaan teman.";
+    }
+  },
+
+  respondFriendRequest: async (friendshipId, accept) => {
+    const { session, currentUser } = get();
+    if (!session || !currentUser) return "Kamu perlu masuk dulu.";
+
+    try {
+      await respondFriendRequestRow(
+        friendshipId,
+        session.userId,
+        accept,
+        currentUser.name,
+      );
+      await get().refreshCommunity();
+      return null;
+    } catch (error) {
+      return error instanceof Error
+        ? error.message
+        : "Gagal memproses permintaan teman.";
+    }
+  },
+
+  removeFriendship: async (friendshipId) => {
+    const { session } = get();
+    if (!session) return "Kamu perlu masuk dulu.";
+
+    try {
+      await removeFriendshipRow(friendshipId, session.userId);
+      await get().refreshCommunity();
+      return null;
+    } catch (error) {
+      return error instanceof Error
+        ? error.message
+        : "Gagal menghapus pertemanan.";
+    }
+  },
+
+  markNotificationRead: async (notificationId) => {
+    const { session, notifications } = get();
+    if (!session) return;
+
+    const target = notifications.find((item) => item.id === notificationId);
+    if (!target || target.readAt) return;
+
+    set({
+      notifications: notifications.map((item) =>
+        item.id === notificationId
+          ? { ...item, readAt: new Date().toISOString() }
+          : item,
+      ),
+    });
+
+    try {
+      await markNotificationReadRow(notificationId, session.userId);
+    } catch {
+      await get().refreshCommunity();
+    }
+  },
+
   rsvpEvent: async (eventId) => {
     const { session, rsvpedEventIds } = get();
     if (!session || rsvpedEventIds.includes(eventId)) return;
@@ -283,6 +424,29 @@ export const useAppStore = create<AppStore>()((set, get) => ({
 
 export function useCurrentUserId() {
   return useAppStore((s) => s.session?.userId ?? null);
+}
+
+export function friendIdForUser(
+  friendship: Friendship,
+  userId: string,
+): string {
+  return friendship.requesterId === userId
+    ? friendship.addresseeId
+    : friendship.requesterId;
+}
+
+export function resolveFriendshipWith(
+  friendships: Friendship[],
+  userId: string,
+  otherUserId: string,
+): Friendship | null {
+  return (
+    friendships.find(
+      (item) =>
+        (item.requesterId === userId && item.addresseeId === otherUserId) ||
+        (item.requesterId === otherUserId && item.addresseeId === userId),
+    ) ?? null
+  );
 }
 
 export function resolvePerson(

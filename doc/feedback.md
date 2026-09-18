@@ -2,7 +2,7 @@
 
 Sumber: tabel `public.feedback` (Supabase) — 15 rows, semua kategori `saran`.
 
-**Progress:** 10 done · 0 todo · 5 pending-validation
+**Progress:** 13 done · 0 todo · 2 pending-validation
 
 ## Sudah dikerjakan
 
@@ -18,6 +18,9 @@ Sumber: tabel `public.feedback` (Supabase) — 15 rows, semua kategori `saran`.
 | FB-08 | done | Blok join session yang overlap waktu | 2026-09-18 | e9d57bd |
 | FB-09 | done | Edit session sebelum melewati jam selesai | 2026-09-18 | 094ca5f |
 | FB-10 | done | Feedback form: bisa lampirkan gambar | 2026-09-18 | 1111b8e |
+| FB-14 | done | Add friend (request/accept) untuk undang WFC | 2026-09-18 | — |
+| FB-11 | done | Invite = pilih user + notif, bukan share link | 2026-09-18 | — |
+| FB-12 | done | Notifikasi deep-link ke session | 2026-09-18 | — |
 
 ## Belum dikerjakan
 
@@ -29,10 +32,7 @@ _Semua item batch ini sudah dikerjakan._
 
 | ID | Status | Feedback | Tanggal |
 |----|--------|----------|---------|
-| FB-11 | pending-validation | Invite = pilih user + notif, bukan share link | 2026-09-18 |
-| FB-12 | pending-validation | Notifikasi ke event (“notifikasi naha ke event”) | 2026-09-18 |
 | FB-13 | pending-validation | SSO sign up | 2026-09-17 |
-| FB-14 | pending-validation | Add friend untuk undang ke WFC berikutnya | 2026-09-17 |
 | FB-15 | pending-validation | Google Maps tempat + direction | 2026-09-18 |
 
 ## Detail pesan asli
@@ -88,4 +88,4 @@ _Semua item batch ini sudah dikerjakan._
 
 ## Urutan eksekusi
 
-1. FB-01 → 2. FB-02 → 3. FB-03 → 4. FB-04 → 5. FB-05 → 6. FB-06 → 7. FB-07 → 8. FB-08 → 9. FB-09 → 10. FB-10
+1. FB-01 → 2. FB-02 → 3. FB-03 → 4. FB-04 → 5. FB-05 → 6. FB-06 → 7. FB-07 → 8. FB-08 → 9. FB-09 → 10. FB-10 → 11. FB-14 → 12. FB-11 → 13. FB-12

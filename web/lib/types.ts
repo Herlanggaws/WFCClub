@@ -81,3 +81,33 @@ export interface CurrentUserProfile {
   avatarHue: number;
   initials: string;
 }
+
+export type FriendshipStatus = "pending" | "accepted" | "declined";
+
+export interface Friendship {
+  id: string;
+  requesterId: string;
+  addresseeId: string;
+  status: FriendshipStatus;
+  createdAt: string;
+}
+
+export type NotificationType =
+  | "session_invite"
+  | "friend_request"
+  | "friend_accepted";
+
+export type NotificationTargetType = "session" | "person";
+
+export interface AppNotification {
+  id: string;
+  recipientId: string;
+  actorId: string | null;
+  type: NotificationType;
+  title: string;
+  body: string;
+  targetType: NotificationTargetType | null;
+  targetId: string | null;
+  readAt: string | null;
+  createdAt: string;
+}

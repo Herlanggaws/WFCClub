@@ -62,7 +62,7 @@ export default function PeoplePage() {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Cari nama, role, atau interest"
-          className="w-full rounded-full border-0 bg-surface px-5 py-3.5 text-sm shadow-[var(--shadow)] outline-none ring-accent focus:ring-2"
+          className="w-full rounded-full border-0 bg-surface px-5 py-3.5 text-sm text-ink shadow-[var(--shadow)] outline-none ring-accent placeholder:text-muted/70 focus:ring-2"
         />
 
         <section className="mt-6">
